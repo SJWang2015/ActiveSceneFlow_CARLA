@@ -36,5 +36,6 @@ This repository includes:
 the ego-vehicle and the road as well as the predicted scene;
 3. Actively select the optimal observation position based scene similarity metirc between 2 frames point clouds;
 4. Scene flow estimation method with Kuhn-Munkres (KM) scheme based coarse estimation and self-attention neural
-network based refinement.
+network based refinement;
+5. A briefing video for introducing this work in the media directory.
 
