@@ -39,3 +39,7 @@ the ego-vehicle and the road as well as the predicted scene;
 network based refinement;
 5. A [briefing video](https://github.com/SJWang2015/ActiveSceneFlow_CARLA/blob/main/media/1509_tip2_lr.mp4) for introducing this work in the media directory.
 
+## Visulizaiton Videos
+Scene flow dataset           
+<img src="https://github.com/SJWang2015/ActiveSceneFlow_CARLA/blob/main/media/carla.gif" width="600" />
+
