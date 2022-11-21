@@ -31,11 +31,15 @@ configurations, compared with other SOTA methods
 
 ##
 This repository includes:
-1. Scene flow dataset collection and anotation;
+1. [Scene flow dataset](https://github.com/SJWang2015/ActiveSceneFlow_CARLA/blob/main/media/carla.gif) collection and anotation;
 2. A reliable reachable area detection strategy through hidden points removing (HPR) based scene prediction and a legality checking scheme between
 the ego-vehicle and the road as well as the predicted scene;
 3. Actively select the optimal observation position based scene similarity metirc between 2 frames point clouds;
 4. Scene flow estimation method with Kuhn-Munkres (KM) scheme based coarse estimation and self-attention neural
 network based refinement;
 5. A [briefing video](https://github.com/SJWang2015/ActiveSceneFlow_CARLA/blob/main/media/1509_tip2_lr.mp4) for introducing this work in the media directory.
+
+## Visulizaiton Videos
+Scene flow dataset           
+<img src="https://github.com/SJWang2015/ActiveSceneFlow_CARLA/blob/main/media/carla.gif" width="600" />
 
