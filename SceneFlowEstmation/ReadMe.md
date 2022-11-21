@@ -1,7 +1,7 @@
 # Scene Flow Estimation
 
 ## Coarse Scene Flow 
-Use BEV map and KM method to estimate the scene flow 
+Use [BEV map](https://github.com/SJWang2015/ActiveSceneFlow_CARLA/blob/main/media/bev.png) and KM method to estimate the scene flow 
 
 
 ## Scene Flow Refinement
