@@ -1,0 +1,22 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python: Current File",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            // "args":["record", "21", "08,59"],
+            // "args":["spawn"],
+            // "args":["output2/"],
+            // "args":["./output.log"],
+            //  "args":["./logfile-Town02v50.txt"],
+            "cwd":"${fileDirname}"
+        }
+    ]
+}
+
