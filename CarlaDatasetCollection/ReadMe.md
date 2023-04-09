@@ -2,6 +2,9 @@
 
 1. 随机生成运动场景，并记录log
 使用CARLA官方的代码生成含有多个运动目标的交通场景，并使用对应的代码生成log文件
+‘’‘
+python3 start_recording.py -n xxx
+‘’’
 
 2. 运行
  ```
