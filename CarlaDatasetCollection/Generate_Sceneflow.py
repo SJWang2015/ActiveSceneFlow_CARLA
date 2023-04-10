@@ -14,36 +14,68 @@ from utils.calibration import Calibration
 from utils import odom_utils, flow_vis
 import re 
 from sklearn.neighbors import NearestNeighbors
+from hausdorff import hausdorff_distance
+import torch
 
 from HPR import *
 image_folder = './passive_image/'
 # image_folder = './active_image_261/'
+bi_wheels_vehicles_list = ['gazelle.omafiets','kawasaki.ninja','yamaha.yzf','harley-davidson.low_rider']
+finetune_vehicles_list = ['carlamotors.firetruck']
 
 global img_cnt
 img_cnt = 0
-prefixed_V_name = "vehicle.dodge.charger_police_2020_261"
+prefixed_V_name = "vehicle.dodge.charger_police_2020_1872"
 # prefixed_V_name = "vehicle.mini.cooper_s_2021_263"
 # prefixed_V_name = "vehicle.dodge.charger_police_2020_265"
 # prefixed_V_name = "vehicle.volkswagen.t2_325"
 str_time = '1714'
 only_fg = False
+DATASET_NAME = 'record2023_0408_0110' 
+DATASET_NAME = 'record2023_0409_2045' 
+DATASET_NAMEs = ['record2023_0408_0110', 'record2023_0408_1552', 'record2023_0408_1558', 'record2023_0408_1602', 'record2023_0408_1606', 'record2023_0408_1610', 'record2023_0408_1628', 'record2023_0408_1631','record2023_0408_1635', 'record2023_0408_1639'] 
+# DATASET_NAMEs = [ 'record2023_0408_1825', ] 
+
+# DATASET_NAMEs = ['record2023_0308_1524', 'record2023_0308_1524', 'record2023_0407_1435', 'record2023_0407_1439', 'record2023_0407_1442', 'record2023_0407_1446', 'record2023_0407_1450', 'record2023_0407_1458','record2023_0407_1502', 'record2023_0407_1505'] 
+
+# GT_SUB_DATASETs = ['vehicle.audi.a2_381', 'vehicle.citroen.c3_386', 'vehicle.volkswagen.t2_2021_357', 'vehicle.lincoln.mkz_2020_336', 'vehicle.mercedes.coupe_393','vehicle.nissan.micra_331','vehicle.mercedes.coupe_333','vehicle.nissan.patrol_345','vehicle.mini.cooper_s_2021_339','vehicle.audi.tt_421']
+
+GT_SUB_DATASETs = ['vehicle.audi.a2_296', 'vehicle.citroen.c3_301', 'vehicle.volkswagen.t2_2021_272', 'vehicle.lincoln.mkz_2020_251', 'vehicle.mercedes.coupe_308','vehicle.nissan.micra_246','vehicle.mercedes.coupe_248','vehicle.nissan.patrol_260','vehicle.mini.cooper_s_2021_254','vehicle.audi.tt_336']
+# GT_SUB_DATASETs = ['vehicle.mercedes.coupe_248']
+
+
+ACTIVE_SUB_DATASETs = ['vehicle.audi.a2_296', 'vehicle.citroen.c3_301', 'vehicle.volkswagen.t2_2021_272', 'vehicle.lincoln.mkz_2020_251', 'vehicle.mercedes.coupe_308','vehicle.nissan.micra_246','vehicle.mercedes.coupe_248','vehicle.nissan.patrol_260','vehicle.mini.cooper_s_2021_254','vehicle.audi.tt_336']
+# ACTIVE_SUB_DATASETs = ['vehicle.mercedes.coupe_248']
+# ACTIVE_SUB_DATASETs = ['vehicle.audi.a2_381', 'vehicle.citroen.c3_386', 'vehicle.volkswagen.t2_2021_357', 'vehicle.lincoln.mkz_2020_336', 'vehicle.mercedes.coupe_393','vehicle.nissan.micra_331','vehicle.mercedes.coupe_333','vehicle.nissan.patrol_345','vehicle.mini.cooper_s_2021_339','vehicle.audi.tt_421']
+
 # DATASET_PATH = 'dataset/record2022_0308_1719/'
 # DATASET_PATH = 'dataset/record2022_0312_1451/' #v_id=8
-DATASET_PATH = 'dataset/record2022_0315_1209/' #v_id=8
+# DATASET_PATH = 'dataset/record2022_0315_1209/' #v_id=8
 # DATASET_PATH = 'dataset/record2022_0316_1838/' #v_id=8
 # DATASET_PATH = 'dataset/record2022_0316_0046/' #v_id=75
+DATASET_PATH = 'dataset/' + DATASET_NAME + '/'
+# DATASET_PATH = 'dataset/record2022_1203_1459/'
+# DATASET_PATH = 'dataset/record2022_1203_1524/' 
+# DATASET_PATH = 'dataset/record2022_1203_1550/' 
+# DATASET_PATH = 'dataset/record2022_1203_1604/' 
 
 # DATASET_PATH2 = 'dataset/record2022_0316_0046/' #v_id=75
 # DATASET_PATH2 = 'dataset/record2022_0316_0308/' #v_id=17
 # DATASET_PATH2 = 'dataset/record2022_0316_0312/' #v_id=7
 # DATASET_PATH2 = 'dataset/record2022_0316_0316/' #v_id=7
-DATASET_PATH2 = 'dataset/record2022_0316_' + str_time + '/' #v_id=7
-DATASET_PATH2 = 'dataset/record2022_0317_' + str_time + '/' #v_id=7
+# DATASET_PATH2 = 'dataset/record2022_1203_1459/' 
+# DATASET_PATH2 = 'dataset/record2022_1203_1524/' 
+DATASET_PATH2 = 'dataset/' + DATASET_NAME + '/'
+# DATASET_PATH2 = 'dataset/record2022_1203_1524/'
+# DATASET_PATH2 = 'dataset/record2022_1203_1550/' 
+# DATASET_PATH2 = 'dataset/record2022_1203_1604/' 
+# DATASET_PATH2 = 'dataset/record2022_0316_' + str_time + '/' #v_id=7
+# DATASET_PATH2 = 'dataset/record2022_0317_' + str_time + '/' #v_id=7
 # DATASET_PATH2 = 'dataset/record2022_0312_1531/' #v_id=32
 DATASET_RAWTRANS_PATH = DATASET_PATH + '/global_label'
 RESULT_PATH = './results'
 
-SUB_DATASET = 'vehicle.dodge.charger_police_2020_261'#'vehicle.nissan.micra_1045'
+SUB_DATASET = 'vehicle.audi.etron_1928'#'vehicle.nissan.micra_1045'
 v_pattern = r"(?P<name>[vehicle]+.\w+.\w+)_(?P<v_id>\d+)"
 v = re.findall(v_pattern, SUB_DATASET)[0]
 DATASET_PC_PATH = DATASET_PATH + SUB_DATASET + '/velodyne/'
@@ -57,10 +89,14 @@ RESULT_PATH2 = './results/record2022_0315_1209/rm_egoV_fg2/'
 RESULT_PATH2 = './results/record2022_0315_1209/rm_egoV_fg2_correcyion/'
 # RESULT_PATH2 = './results/record2022_0315_0046/rm_egoV_fg2_paper/'
 RESULT_PATH2 = './results/record2022_0316_1838/rm_egoV_fg2_correcyion/'
+
 RESULT_PATH3 = './results/record2022_0315_1209_' + str_time + '/rm_egoV_fg2/'
 RESULT_PATH3 = './results/record2022_0316_1838_' + str_time + '/rm_egoV2/'
 RESULT_PATH3 = './results/record2022_0315_1209_' + str_time + '/rm_egoV_fg2_correcyion/'
 # RESULT_PATH3 = './results/record2022_0314_0305_2241/rm_egoV/'
+
+RESULT_PATH2 = './results/' + DATASET_NAME + '/rm_road/'
+
 trans_pattern = v[0] + " " + v[1] + r" (?P<x>[+-]?\d+.\d+|[+-]?\d+.\d+e[+-][0-9]+|[+-]?\d+) "\
     r"(?P<y>[+-]?\d+.\d+|[+-]?\d+.\d+e[+-][0-9]+|[+-]?\d+) (?P<z>[+-]?\d+.\d+|[+-]?\d+.\d+e[+-][0-9]+|[+-]?\d+) "\
         r"(?P<r_x>[+-]?\d+.\d+|[+-]?\d+.\d+e[+-][0-9]+|[+-]?\d+) (?P<r_y>[+-]?\d+.\d+|[+-]?\d+.\d+e[+-][0-9]+|[+-]?\d+) "\
@@ -71,7 +107,7 @@ lidar_pattern = r"sensor.lidar.ray_cast (?P<v_id>\d+) (?P<x>[+-]?\d+.\d+|[+-]?\d
         r"(?P<r_x>[+-]?\d+.\d+|[+-]?\d+.\d+e[+-][0-9]+|[+-]?\d+) (?P<r_y>[+-]?\d+.\d+|[+-]?\d+.\d+e[+-][0-9]+|[+-]?\d+) "\
             r"(?P<r_z>[+-]?\d+.\d+|[+-]?\d+.\d+e[+-][0-9]+|[+-]?\d+) 0 0 0 " + v[1]
 
-glb_label_pattern = r"vehicle.(?P<name>\w+.\w+) (?P<v_id>\d+) (?P<x>[+-]?\d+.\d+|[+-]?\d+.\d+e[+-][0-9]+|[+-]?\d+) "\
+glb_label_pattern = r"vehicle.(?P<name>\w+.\w+.\w+) (?P<v_id>\d+) (?P<x>[+-]?\d+.\d+|[+-]?\d+.\d+e[+-][0-9]+|[+-]?\d+) "\
     r"(?P<y>[+-]?\d+.\d+|[+-]?\d+.\d+e[+-][0-9]+|[+-]?\d+) (?P<z>[+-]?\d+.\d+|[+-]?\d+.\d+e[+-][0-9]+|[+-]?\d+) "\
         r"(?P<r_x>[+-]?\d+.\d+|[+-]?\d+.\d+e[+-][0-9]+|[+-]?\d+) (?P<r_y>[+-]?\d+.\d+|[+-]?\d+.\d+e[+-][0-9]+|[+-]?\d+) "\
             r"(?P<r_z>[+-]?\d+.\d+|[+-]?\d+.\d+e[+-][0-9]+|[+-]?\d+) (?P<extbbx_x>[+-]?\d+.\d+|[+-]?\d+.\d+e[+-][0-9]+|[+-]?\d+) "\
@@ -89,6 +125,85 @@ lidar_label_pattern = r"(?P<v_id>[+-]?\d+.\d+|[+-]?\d+.\d+e[+-][0-9]+|[+-]?\d+) 
 #     r"(?P<extbbx_z>[+-]?\d+.\d+|[+-]?\d+.\d+e[+-][0-9]+|[+-]?\d+) (?P<extbbx_y>[+-]?\d+.\d+|[+-]?\d+.\d+e[+-][0-9]+|[+-]?\d+) (?P<extbbx_x>[+-]?\d+.\d+|[+-]?\d+.\d+e[+-][0-9]+|[+-]?\d+) "\
 #         r"(?P<vloc_x>[+-]?\d+.\d+|[+-]?\d+.\d+e[+-][0-9]+|[+-]?\d+) (?P<vloc_y>[+-]?\d+.\d+|[+-]?\d+.\d+e[+-][0-9]+|[+-]?\d+) "\
 #         r"(?P<vloc_z>[+-]?\d+.\d+|[+-]?\d+.\d+e[+-][0-9]+|[+-]?\d+) (?P<vbbx_delta>[+-]?\d+.\d+|[+-]?\d+.\d+e[+-][0-9]+|[+-]?\d+) (?P<v_id>\d+)"
+
+def square_distance(src, dst):
+    """
+    Calculate Euclid distance between each two points.
+    src^T * dst = xn * xm + yn * ym + zn * zm；
+    sum(src^2, dim=-1) = xn*xn + yn*yn + zn*zn;
+    sum(dst^2, dim=-1) = xm*xm + ym*ym + zm*zm;
+    dist = (xn - xm)^2 + (yn - ym)^2 + (zn - zm)^2
+         = sum(src**2,dim=-1)+sum(dst**2,dim=-1)-2*src^T*dst
+    Input:
+        src: source points, [B, N, C]
+        dst: target points, [B, M, C]
+    Output:
+        dist: per-point square distance, [B, N, M]
+    """
+    N, _ = src.shape
+    M, _ = dst.shape
+    dist = -2 * torch.matmul(src, dst.T)
+    dist += torch.sum(src ** 2, -1).reshape((N, 1))
+    dist += torch.sum(dst ** 2, -1).reshape((1, M))
+    return dist
+
+def naive_arg_topK(matrix, K, axis=0):
+    """
+    perform topK based on np.argsort
+    :param matrix: to be sorted
+    :param K: select and sort the top K items
+    :param axis: dimension to be sorted.
+    :return:
+    """
+    full_sort = np.argsort(matrix, axis=axis)
+    return full_sort.take(np.arange(K), axis=axis)
+
+def topk_by_sort(input, k, axis=None, ascending=True):
+    if not ascending:
+        input *= -1
+    ind = np.argsort(input, axis=axis)
+    ind = np.take(ind, np.arange(k), axis=axis)
+    if not ascending:
+        input *= -1
+    val = np.take_along_axis(input, ind, axis=axis) 
+    return ind, val
+
+def topk_by_partition(input, k, axis=None, ascending=True):
+    if not ascending:
+        input *= -1
+    ind = np.argpartition(input, k, axis=axis)
+    ind = np.take(ind, np.arange(k), axis=axis) # k non-sorted indices
+    input = np.take_along_axis(input, ind, axis=axis) # k non-sorted values
+
+    # sort within k elements
+    ind_part = np.argsort(input, axis=axis)
+    ind = np.take_along_axis(ind, ind_part, axis=axis)
+    if not ascending:
+        input *= -1
+    val = np.take_along_axis(input, ind_part, axis=axis) 
+    return ind, val
+
+def computeChamfer(pc1, pc2):
+    '''
+    pc1: B 3 N
+    pc2: B 3 M
+    '''
+    # pc1 = pc1.T
+    # pc2 = pc2.T
+    t_pc1 = torch.from_numpy(pc1)#.cuda()
+    t_pc2 = torch.from_numpy(pc2)#.cuda()
+    sqrdist12 = square_distance(t_pc1, t_pc2) # B N M
+
+    #chamferDist
+    # _, dist1 = topk_by_sort(sqrdist12.copy(), 1, axis=0, ascending=False)
+    # _, dist2 = topk_by_sort(sqrdist12.copy(), 1, axis=1, ascending=False)
+    dist1, _ = torch.topk(sqrdist12, 1, dim = -1, largest=False, sorted=False)
+    dist2, _ = torch.topk(sqrdist12, 1, dim = 1, largest=False, sorted=False)
+    dist1 = dist1.squeeze()
+    dist2 = dist2.squeeze()
+
+    # return dist1.cpu().numpy(), dist2.cpu().numpy()
+    return dist1.numpy(), dist2.numpy()
 
 def save_view_point(pcd, filename):
     vis = o3d.visualization.Visualizer()
@@ -300,7 +415,7 @@ def Draw_SceneFlow(vis, np_list, use_fast_vis = True, use_pred_t = False, use_cu
     pc1 = np_list[0]
     pc2 = np_list[1]
     pred_pc1 = np_list[2]
-    
+    vis_data = False
     if use_pred_t:
         pred_pc1 = pc1+np_list[3]
         pred_flow = np_list[3]
@@ -325,7 +440,7 @@ def Draw_SceneFlow(vis, np_list, use_fast_vis = True, use_pred_t = False, use_cu
     query_pt = o3d.geometry.PointCloud()
     query_pt.points = o3d.utility.Vector3dVector(pc1)
     if use_custom_color:
-        query_pt.paint_uniform_color([0,1,0])
+        query_pt.paint_uniform_color([0,1,0]) #([0.5,0.5,0.5])
         pred_query_pt.paint_uniform_color([0,0,1])
         
     if pc2 is not None:
@@ -339,6 +454,11 @@ def Draw_SceneFlow(vis, np_list, use_fast_vis = True, use_pred_t = False, use_cu
             vis_list = [query_pt2, query_pt]
     else:
         vis_list = [pred_query_pt, pred_t_query_pt, query_pt]
+    
+    if vis_data:
+        pred_query_pt.paint_uniform_color([0.5,0.5,0.5])
+        vis_list = [pred_query_pt, query_pt2, query_pt]
+        
 
     if use_flow:
         flow = np_list[3]
@@ -353,12 +473,12 @@ def Draw_SceneFlow(vis, np_list, use_fast_vis = True, use_pred_t = False, use_cu
         vis_list += [line_set]
     if len(np_list)>=5:
         vis_list += np_list[4:]
-    # mesh_frame = o3d.geometry.TriangleMesh.create_coordinate_frame(size=10, origin=[0, 0, -2.5])
+    mesh_frame = o3d.geometry.TriangleMesh.create_coordinate_frame(size=10, origin=[0, 0, -3.4])
     # bbx_pcd = o3d.geometry.PointCloud()
     # bbx_pcd.points = o3d.utility.Vector3dVector(bbx)
     # bbx_pcd.paint_uniform_color([1,0,1])
     # vis.add_geometry(bbx_pcd)
-    # vis.add_geometry(mesh_frame)
+    vis.add_geometry(mesh_frame)
     if use_fast_vis:
         for item in vis_list:
             vis.add_geometry(item)
@@ -383,11 +503,13 @@ def Draw_SceneFlow(vis, np_list, use_fast_vis = True, use_pred_t = False, use_cu
     # vis.register_animation_callback(rotate_view)
     vis.run()
     # dummy_fig = plt.gcf()
+
     img = vis.capture_screen_float_buffer(True)
     img = np.asarray(img)
     img = o3d.geometry.Image((img * 255).astype(np.uint8))
     image_name = image_folder + '{:04d}'.format(img_cnt) + '.png'
     o3d.io.write_image(image_name, img)
+
     # plt.axes().get_xaxis().set_visible(False)
     # plt.axes().get_yaxis().set_visible(False)  
     # plt.imshow(np.asarray(img))
@@ -2048,57 +2170,64 @@ def Generate_Random_SceneFlow(start = 1, step=1, lidar_hight = 3.4, prefixed_V_n
     start = start
     img_cnt = 0
     # show_fgrnds = True
+    use_map = False
+    use_seg = True
+    ana_data = False
+    if use_map:
+        # drivable_areas = odom_utils.readPointCloud('./data/town02-map.bin') #road map
+        # drivable_area = drivable_areas[:,:3]
+        # drivable_area[:,-1] = -1.0 * lidar_hight
+        # road_id = drivable_areas[:,-1]
+        # colors = []
+        # for iCnt in road_id:
+        #     if iCnt == 0:
+        #         colors += [[1,0,0]]
+        #     elif iCnt == 1:
+        #         colors += [[0,1,0]]
+        #     elif iCnt == 2:
+        #         colors += [[0,0,1]]
+        #     elif iCnt == 3:
+        #         colors += [[1,1,0]]
+        #     else:
+        #         colors += [[1,0,1]]
+        # #指定实验道路
+        # iou_id = np.argwhere(road_id == 1)
 
-    drivable_areas = odom_utils.readPointCloud('./dataset/town02-map.bin') #road map
-    drivable_area = drivable_areas[:,:3]
-    drivable_area[:,-1] = -1.0 * lidar_hight
-    road_id = drivable_areas[:,-1]
-    colors = []
-    for iCnt in road_id:
-        if iCnt == 0:
-            colors += [[1,0,0]]
-        elif iCnt == 1:
-            colors += [[0,1,0]]
-        elif iCnt == 2:
-            colors += [[0,0,1]]
-        elif iCnt == 3:
-            colors += [[1,1,0]]
-        else:
-            colors += [[1,0,1]]
-    #指定实验道路
-    iou_id = np.argwhere(road_id == 1)
-
-    drivable_centers = np.load('./dataset/np_c.npy')#odom_utils.readPointCloud('./dataset/town02-road-center.bin')
-    drivable_center = drivable_centers[:,:3]
-    drivable_center[:,-1] = -1.0 * lidar_hight
-    drivable_center[:,1] *= -1.0
-    road_id2 = []
-    road_id2 = drivable_centers[:,-1]
-    ref_drivable_center_inds = np.argwhere(drivable_centers[:,-1] == 1)
-    colors2 = []
-    for iCnt in road_id2:
-        if iCnt < 1:
-            colors2 += [[1,0,0]]
-        elif iCnt >= 1  and iCnt < 2:
-            colors2 += [[0,1,0]]
-        elif iCnt >= 2 and iCnt < 3:
-            colors2 += [[0,0,1]]
-        elif iCnt >= 3 and iCnt < 4:
-            colors2 += [[1,1,0]]
-        else:
-            colors2 += [[1,0,1]]
+        # drivable_centers = np.load('./data/np_c.npy')#odom_utils.readPointCloud('./dataset/town02-road-center.bin')
+        # drivable_center = drivable_centers[:,:3]
+        # drivable_center[:,-1] = -1.0 * lidar_hight
+        # drivable_center[:,1] *= -1.0
+        # road_id2 = []
+        # road_id2 = drivable_centers[:,-1]
+        # ref_drivable_center_inds = np.argwhere(drivable_centers[:,-1] == 1)
+        # colors2 = []
+        # for iCnt in road_id2:
+        #     if iCnt < 1:
+        #         colors2 += [[1,0,0]]
+        #     elif iCnt >= 1  and iCnt < 2:
+        #         colors2 += [[0,1,0]]
+        #     elif iCnt >= 2 and iCnt < 3:
+        #         colors2 += [[0,0,1]]
+        #     elif iCnt >= 3 and iCnt < 4:
+        #         colors2 += [[1,1,0]]
+        #     else:
+        #         colors2 += [[1,0,1]]
+        drivable_area = np.load('./town02_map.npy')
+        # drivable_area = drivable_areas[:,:3]
+        drivable_area[:,-1] = -1.0 * lidar_hight
 
     
-    # drivable_area[:,0] *= -1
-    pcd_drivable_area = o3d.geometry.PointCloud()
-    # pcd_drivable_area.points = o3d.utility.Vector3dVector(drivable_area)
-    drivable_area_bkp = drivable_area
-    pcd_drivable_area.colors = o3d.utility.Vector3dVector(np.array(colors, dtype=np.dtype('f4')))
+        # drivable_area[:,0] *= -1
+        pcd_drivable_area = o3d.geometry.PointCloud()
+        # pcd_drivable_area.points = o3d.utility.Vector3dVector(drivable_area)
+        drivable_area_bkp = drivable_area
+        # pcd_drivable_area.colors = o3d.utility.Vector3dVector(np.array(colors, dtype=np.dtype('f4')))
+        pcd_drivable_area.paint_uniform_color([1,1,0])
 
-    pcd_drivable_center = o3d.geometry.PointCloud()
-    # pcd_drivable_area.points = o3d.utility.Vector3dVector(drivable_center)
-    drivable_center_bkp = drivable_center
-    pcd_drivable_center.colors = o3d.utility.Vector3dVector(np.array(colors2, dtype=np.dtype('f4')))
+        # pcd_drivable_center = o3d.geometry.PointCloud()
+        # # pcd_drivable_area.points = o3d.utility.Vector3dVector(drivable_center)
+        # drivable_center_bkp = drivable_center
+        # pcd_drivable_center.colors = o3d.utility.Vector3dVector(np.array(colors2, dtype=np.dtype('f4')))
                 
     # Compute_PairwiseSceneFlow(start, 5)
 
@@ -2118,13 +2247,14 @@ def Generate_Random_SceneFlow(start = 1, step=1, lidar_hight = 3.4, prefixed_V_n
     
     
     # enable_animation = True
-    if enable_animation:
+    show_vis = True
+    if enable_animation and show_vis:
         vis = o3d.visualization.Visualizer()
         vis.create_window(width=960*2, height=640*2, left=5, top=5)
         vis.get_render_option().background_color = np.array([0, 0, 0])
         # vis.get_render_option().background_color = np.array([1, 1, 1])
         vis.get_render_option().show_coordinate_frame = False
-        vis.get_render_option().point_size = 3.0
+        vis.get_render_option().point_size = 2.0
         vis.get_render_option().line_width = 5.0
     mesh_frame = o3d.geometry.TriangleMesh.create_coordinate_frame(size=10, origin=[0, 0, -1.0 * lidar_hight])
     
@@ -2153,6 +2283,8 @@ def Generate_Random_SceneFlow(start = 1, step=1, lidar_hight = 3.4, prefixed_V_n
     current_v_info = []
     next_v_info = []
     pred_v_info = []
+    save_active_v_list = False
+    active_vehicle_list = []
     v_pattern = r"vehicle.(?P<nonsense>[\s\S]+)_(?P<v_id>\d+)"
     for sub_dir in os.listdir(DATASET_PATH):
         if 'global_label' in sub_dir or 'img' in sub_dir:
@@ -2167,7 +2299,10 @@ def Generate_Random_SceneFlow(start = 1, step=1, lidar_hight = 3.4, prefixed_V_n
             continue
         v_pattern = r"[vehicle]+.(?P<name>\w+.\w+)_(?P<v_id>\d+)"
         v = re.findall(v_pattern, SUB_DATASET)[0]
-        DATASET_PC_PATH = DATASET_PATH + SUB_DATASET + '/velodyne/'
+        if use_seg:
+            DATASET_PC_PATH = DATASET_PATH + SUB_DATASET + '/velodyne_seg/'
+        else:
+            DATASET_PC_PATH = DATASET_PATH + SUB_DATASET + '/velodyne/'
         DATASET_LBL_PATH = DATASET_PATH + SUB_DATASET + '/label00/'
         # RESULT_PATH = './results/' + SUB_DATASET
         trans_pattern = v[0] + " " + v[1] + r" (?P<x>[+-]?\d+.\d+|[+-]?\d+.\d+e[+-][0-9]+|[+-]?\d+) "\
@@ -2184,12 +2319,15 @@ def Generate_Random_SceneFlow(start = 1, step=1, lidar_hight = 3.4, prefixed_V_n
                 r"(?P<r_x>[+-]?\d+.\d+|[+-]?\d+.\d+e[+-][0-9]+|[+-]?\d+) (?P<r_y>[+-]?\d+.\d+|[+-]?\d+.\d+e[+-][0-9]+|[+-]?\d+) "\
                     r"(?P<r_z>[+-]?\d+.\d+|[+-]?\d+.\d+e[+-][0-9]+|[+-]?\d+) 0 0 0 0 " + v[1]
         glb_label_pattern2 = v[0] + " " + v[1] + r" (?P<x>[+-]?\d+.\d+|[+-]?\d+.\d+e[+-][0-9]+|[+-]?\d+) "\
-    r"(?P<y>[+-]?\d+.\d+|[+-]?\d+.\d+e[+-][0-9]+|[+-]?\d+) (?P<z>[+-]?\d+.\d+|[+-]?\d+.\d+e[+-][0-9]+|[+-]?\d+) "\
-        r"(?P<r_x>[+-]?\d+.\d+|[+-]?\d+.\d+e[+-][0-9]+|[+-]?\d+) (?P<r_y>[+-]?\d+.\d+|[+-]?\d+.\d+e[+-][0-9]+|[+-]?\d+) "\
-            r"(?P<r_z>[+-]?\d+.\d+|[+-]?\d+.\d+e[+-][0-9]+|[+-]?\d+) (?P<extbbx_x>[+-]?\d+.\d+|[+-]?\d+.\d+e[+-][0-9]+|[+-]?\d+) "\
-                r"(?P<extbbx_y>[+-]?\d+.\d+|[+-]?\d+.\d+e[+-][0-9]+|[+-]?\d+) (?P<extbbx_z>[+-]?\d+.\d+|[+-]?\d+.\d+e[+-][0-9]+|[+-]?\d+) "\
-                    r"(?P<bbx_z>[+-]?\d+.\d+|[+-]?\d+.\d+e[+-][0-9]+|[+-]?\d+)"
+            r"(?P<y>[+-]?\d+.\d+|[+-]?\d+.\d+e[+-][0-9]+|[+-]?\d+) (?P<z>[+-]?\d+.\d+|[+-]?\d+.\d+e[+-][0-9]+|[+-]?\d+) "\
+                r"(?P<r_x>[+-]?\d+.\d+|[+-]?\d+.\d+e[+-][0-9]+|[+-]?\d+) (?P<r_y>[+-]?\d+.\d+|[+-]?\d+.\d+e[+-][0-9]+|[+-]?\d+) "\
+                    r"(?P<r_z>[+-]?\d+.\d+|[+-]?\d+.\d+e[+-][0-9]+|[+-]?\d+) (?P<extbbx_x>[+-]?\d+.\d+|[+-]?\d+.\d+e[+-][0-9]+|[+-]?\d+) "\
+                        r"(?P<extbbx_y>[+-]?\d+.\d+|[+-]?\d+.\d+e[+-][0-9]+|[+-]?\d+) (?P<extbbx_z>[+-]?\d+.\d+|[+-]?\d+.\d+e[+-][0-9]+|[+-]?\d+) "\
+                            r"(?P<bbx_z>[+-]?\d+.\d+|[+-]?\d+.\d+e[+-][0-9]+|[+-]?\d+)"
         # next_ind = ind + 2
+        if save_active_v_list:
+            active_vehicle_list.append(v[0] + " " + v[1])
+            continue
         pc_files = glob.glob(os.path.join(DATASET_PC_PATH, '*.bin'))#os.listdir(DATASET_PC_PATH)
         # rawtrans_files = glob.glob(os.path.join(DATASET_RAWTRANS_PATH, '*.txt'))#os.listdir(DATASET_RAWTRANS_PATH)
         label_files = glob.glob(os.path.join(DATASET_LBL_PATH, '*.txt'))#os.listdir(DATASET_RAWTRANS_PATH)
@@ -2199,10 +2337,10 @@ def Generate_Random_SceneFlow(start = 1, step=1, lidar_hight = 3.4, prefixed_V_n
         label_files.sort()
 
         total_cmd_num = len(pc_files)
-        frame_start,frame_end,frame_hz = 10,-5,1
+        frame_start,frame_end,frame_hz = start,start,1
         spawn_points = []
         cnt = 0
-
+        dialation_var = 0.6
         ego_v_info = re.findall(v_pattern, sub_dir)
         with open(rawtrans_files[0], 'r') as file:
                 raw_log = file.read()
@@ -2216,24 +2354,32 @@ def Generate_Random_SceneFlow(start = 1, step=1, lidar_hight = 3.4, prefixed_V_n
         
         
         # DATASET_SF_PATH = RESULT_PATH2 + '/SF/' + "%02d"%(sub_dir_cnt) + '/'
-        DATASET_SF_PATH = RESULT_PATH2 + SF_DIR + "%02d"%(sub_dir_cnt) + '/'
-        if not os.path.exists(DATASET_SF_PATH) and save_pts:
+        DATASET_SF_PATH2 = RESULT_PATH2 + SF_DIR
+        DATASET_SF_PATH = DATASET_SF_PATH2+ "%02d"%(sub_dir_cnt) + '/'
+        
+        if not os.path.exists(DATASET_SF_PATH) and (save_pts or ana_data):
             os.makedirs(DATASET_SF_PATH)
+        
 
         if build_lidar_fov:
             write_labels('record2021_0716_2146/', sub_dir, frame_start,frame_end, frame_hz, index=1)
         else:
             # step = 1
-            for ind in range(start, len(pc_files)-step, step):
+            data_arr_list = [] #Frame Number, SF_Frame, Infos
+            data_arr2_list = [] #Frame Number, SF_Frame, Infos
+            vehicle_list = [] # Frame Number, Vehicles_name,VehiclesId frame_end
+            for ind in range(start, len(pc_files)-frame_end, step):
                 raw_next_ind  = ind + step
                 raw_pred_ind  = ind - step
                 if raw_next_ind >= len(label_files):
-                        break
+                    break
                 if raw_pred_ind < 0:
                     break
                 print("Current DIR:" + DATASET_PC_PATH + ' Frame:' +str(ind))
                 # tmp = cmd_traj[ind, ]
                 # saveVehicleInfo()
+                height = len(rawtrans_files) #Frame Number
+                depth = 14 # VehiclesId, SF(vx,vy,vz),bbx(cx,cy,cz,l,w,h),src_nums, tgt_nums，hausdoff_dist， 1-NN
                 
                 # # For writting the vehicle info ln:1357-1558
                 if egoV_flag:
@@ -2256,14 +2402,24 @@ def Generate_Random_SceneFlow(start = 1, step=1, lidar_hight = 3.4, prefixed_V_n
 
                 # Compute_PairwiseSceneFlow(ind, next_ind, trans_pattern, lidar_pattern, DATASET_PC_PATH, DATASET_LBL_PATH)
                 vis_list = []
+                vis_bbx_list = []
                 first_v_raw_trans = odom_utils.readRawData(rawtrans_files[ind], trans_pattern) * v_l2r
                 first_sensor_raw_trans = odom_utils.readRawData(rawtrans_files[ind], lidar_semantic_pattern) * s_l2r
 
-                raw_src_pc = odom_utils.readPointCloud(pc_files[ind])[:, :3]
+                if use_seg:
+                    raw_src_pc_0 = odom_utils.readPointCloud(pc_files[ind], use_seg=use_seg)
+                    raw_src_pc = raw_src_pc_0[:, :3]
+                    raw_src_pc_att = raw_src_pc_0[:, -1]
+                else:
+                    raw_src_pc = odom_utils.readPointCloud(pc_files[ind], use_seg=use_seg)[:, :3]
                 raw_src_pc_bkp = raw_src_pc + first_v_raw_trans[:3]
                 if rm_ground:
-                    is_ground = np.logical_not(raw_src_pc[:, 2] <= -1.0 * (lidar_hight-0.1))
+                    if use_seg:
+                        is_ground = np.logical_not(np.logical_or(raw_src_pc_att == 7.0,raw_src_pc_att == 6.0))
+                    else:
+                        is_ground = np.logical_not(raw_src_pc[:, 2] <= -1.0 * (lidar_hight-0.1))
                     raw_src_pc = raw_src_pc[is_ground, :] 
+                    raw_src_pc_att = raw_src_pc_att[is_ground] 
                 # arr = src_pc
                 # np.save('./data/np_src', src_pc)
                 # For the carla origin coordatinate 
@@ -2272,26 +2428,32 @@ def Generate_Random_SceneFlow(start = 1, step=1, lidar_hight = 3.4, prefixed_V_n
                 
                 # ## For the carla original coordinate
                 # drivable_area = drivable_area_bkp @ np.array([[0,-1,0],[1,0,0],[0,0,1]])
-
-                ## For the first car frame as the original coordinate
-                drivable_area = (drivable_area_bkp - first_v_raw_trans[:3])\
+                if use_map:
+                    ## For the first car frame as the original coordinate
+                    drivable_area = (drivable_area_bkp - first_v_raw_trans[:3])\
                      @ odom_utils.rotation_from_euler_zyx(-first_v_raw_trans[5], -first_v_raw_trans[4],first_v_raw_trans[3])#
-                pcd_drivable_area.points = o3d.utility.Vector3dVector(drivable_area)
+                    pcd_drivable_area.points = o3d.utility.Vector3dVector(drivable_area)
+                    pcd_drivable_area.paint_uniform_color([1.0,1.0,0.0])
                 # np.save('./data/np_drivable_area', np.hstack((drivable_area, (drivable_areas[:,-1]).reshape((-1,1)))))
                 
                 ## For the carla original coordinate
                 # drivable_center = drivable_center_bkp @ np.array([[0,-1,0],[1,0,0],[0,0,1]])
 
-                # For the first car frame as the original coordinate
-                drivable_center = (drivable_center_bkp - first_v_raw_trans[:3])\
-                     @ odom_utils.rotation_from_euler_zyx(-first_v_raw_trans[5], -first_v_raw_trans[4],first_v_raw_trans[3])#
-                pcd_drivable_center.points = o3d.utility.Vector3dVector(drivable_center)
-                # pcd_drivable_area.paint_uniform_color([1.0,0,0.0])
-                ref_drivable_center = drivable_centers[ref_drivable_center_inds[:,0],:3]
+                # if use_map:
+                    # For the first car frame as the original coordinate
+                    # drivable_center = (drivable_center_bkp - first_v_raw_trans[:3])\
+                    #     @ odom_utils.rotation_from_euler_zyx(-first_v_raw_trans[5], -first_v_raw_trans[4],first_v_raw_trans[3])#
+                    # pcd_drivable_center.points = o3d.utility.Vector3dVector(drivable_center)
+                    # # pcd_drivable_area.paint_uniform_color([1.0,0,0.0])
+                    # ref_drivable_center = drivable_centers[ref_drivable_center_inds[:,0],:3]
 
                 # np.save('./data/np_drivable_center', np.hstack((drivable_center, (drivable_centers[:,-1]).reshape((-1,1)))))
 
                 src_R_vec = first_sensor_raw_trans[4:]
+                # if src_R_vec[1] < 0.0:
+                #     src_R_vec[1] = -1.0 * src_R_vec[1]
+                #     if src_R_vec[0] < 0.0:
+                #         src_R_vec[0] = -1.0 * src_R_vec[1]
                 src_R = o3d.geometry.get_rotation_matrix_from_xyz(src_R_vec)
                 src_R_inv = np.linalg.inv(src_R)
                 tmp_pcd = o3d.geometry.PointCloud()
@@ -2308,18 +2470,30 @@ def Generate_Random_SceneFlow(start = 1, step=1, lidar_hight = 3.4, prefixed_V_n
                 # ego_pcd.paint_uniform_color([0,1,1])
                
                 # drivable_area =  drivable_area - (np.array([[spawn_points[ind][0], -spawn_points[ind][1], 0]]))
-                
-                vis_list = [mesh_frame, pcd_drivable_area, pcd_drivable_center]
+                if use_map:
+                    # vis_list = [mesh_frame, pcd_drivable_area, pcd_drivable_center]
+                    vis_list = [mesh_frame, pcd_drivable_area]
+                else:
+                    vis_list = [mesh_frame]
                 # vis_list = [mesh_frame, pcd]
 
                 raw_tgt_v_raw_trans = odom_utils.readRawData(rawtrans_files[raw_next_ind], trans_pattern) * v_l2r
                 raw_tgt_sensor_raw_trans = odom_utils.readRawData(rawtrans_files[raw_next_ind], lidar_semantic_pattern) * s_l2r
                 
-                raw_tgt_pc = odom_utils.readPointCloud(pc_files[raw_next_ind])[:, :3]
+                if use_seg:
+                    raw_tgt_pc_0 = odom_utils.readPointCloud(pc_files[raw_next_ind], use_seg=use_seg)
+                    raw_tgt_pc = raw_tgt_pc_0[:, :3]
+                    raw_tgt_pc_att = raw_tgt_pc_0[:, -1]
+                else:
+                    raw_tgt_pc = odom_utils.readPointCloud(pc_files[raw_next_ind])[:, :3]
                 raw_tgt_pc_bkp = raw_tgt_pc + raw_tgt_v_raw_trans[:3]
                 if rm_ground:
-                    is_ground = np.logical_not(raw_tgt_pc[:, 2] <= -1.0 * (lidar_hight-0.1))
+                    if use_seg:
+                        is_ground = np.logical_not(np.logical_or(raw_tgt_pc_att == 7.0, raw_tgt_pc_att == 6.0))
+                    else:
+                        is_ground = np.logical_not(raw_tgt_pc[:, 2] <= -1.0 * (lidar_hight-0.1))
                     raw_tgt_pc = raw_tgt_pc[is_ground, :] 
+                    raw_tgt_pc_att = raw_tgt_pc_att[is_ground]
 
                 print(first_v_raw_trans[:3])
                 print(raw_tgt_v_raw_trans[:3])
@@ -2328,13 +2502,17 @@ def Generate_Random_SceneFlow(start = 1, step=1, lidar_hight = 3.4, prefixed_V_n
                 # tgt_pc += tgt_v_raw_trans[:3] @ np.array([[0,-1,0],[1,0,0],[0,0,1]])
 
                 raw_tgt_R_vec = raw_tgt_sensor_raw_trans[4:]
+                # if raw_tgt_R_vec[1] < 0.0:
+                #     raw_tgt_R_vec[1] = -1.0 * raw_tgt_R_vec[1]
+                #     if raw_tgt_R_vec[0] < 0.0:
+                #         raw_tgt_R_vec[0] = -1.0 * raw_tgt_R_vec[1]
                 raw_tgt_R = o3d.geometry.get_rotation_matrix_from_xyz(raw_tgt_R_vec)
                 raw_tgt_R_inv = np.linalg.inv(raw_tgt_R)
                 tmp_pcd_cur = o3d.geometry.PointCloud()
                 tmp_pcd_cur.points = o3d.utility.Vector3dVector(raw_tgt_pc)
 
                 #For the carla origin coordatinate 
-                # pcd_cur.rotate(tgt_R_inv, tgt_v_raw_trans[:3] )
+                # pcd_cur.rotate(tgt_R_inv, tgt_v_raw_trans[:3])
 
                 #For the first frame as the origin coordinate
                 # pcd_cur.rotate(tgt_R_inv, np.zeros(3))
@@ -2344,17 +2522,31 @@ def Generate_Random_SceneFlow(start = 1, step=1, lidar_hight = 3.4, prefixed_V_n
                 raw_tgt_v_raw_trans2 = odom_utils.readRawData(rawtrans_files[raw_pred_ind], trans_pattern) * v_l2r
                 raw_tgt_sensor_raw_trans2 = odom_utils.readRawData(rawtrans_files[raw_pred_ind], lidar_semantic_pattern) * s_l2r
                 
-                raw_tgt_pc2 = odom_utils.readPointCloud(pc_files[raw_pred_ind])[:, :3]
+                if use_seg:
+                    raw_tgt_pc2_0 = odom_utils.readPointCloud(pc_files[raw_pred_ind], use_seg)
+                    raw_tgt_pc2 = raw_tgt_pc2_0[:, :3]
+                    raw_tgt_pc2_att= raw_tgt_pc2_0[:, -1]
+                else:
+                    raw_tgt_pc2 = odom_utils.readPointCloud(pc_files[raw_pred_ind])[:, :3]
                 raw_tgt_pc_bkp2 = raw_tgt_pc2 + raw_tgt_v_raw_trans2[:3]
                 if rm_ground:
-                    is_ground = np.logical_not(raw_tgt_pc2[:, 2] <= -1.0 * (lidar_hight - 0.05))
+                    if use_seg:
+                        is_ground = np.logical_not(np.logical_or(raw_tgt_pc2_att == 7.0, raw_tgt_pc2_att == 6.0)) #7.0 is the road type
+                    else:
+                        is_ground = np.logical_not(raw_tgt_pc2[:, 2] <= -1.0 * (lidar_hight - 0.05))
                     raw_tgt_pc2 = raw_tgt_pc2[is_ground, :] 
+                    raw_tgt_pc2_att = raw_tgt_pc2_att[is_ground] 
 
                 #For the carla origin coordatinate 
                 # tgt_v_raw_trans[2] += 2.5
                 # tgt_pc += tgt_v_raw_trans[:3] @ np.array([[0,-1,0],[1,0,0],[0,0,1]])
 
                 raw_tgt_R_vec2 = raw_tgt_sensor_raw_trans2[4:]
+                # if raw_tgt_R_vec2[1] < 0.0:
+                #     raw_tgt_R_vec2[1] = -1.0 * raw_tgt_R_vec2[1]
+                #     if raw_tgt_R_vec2[0] < 0.0:
+                #         raw_tgt_R_vec2[0] = -1.0 * raw_tgt_R_vec2[0]
+                    
                 raw_tgt_R2 = o3d.geometry.get_rotation_matrix_from_xyz(raw_tgt_R_vec2)
                 raw_tgt_R_inv2 = np.linalg.inv(raw_tgt_R2)
                 pcd_pred = o3d.geometry.PointCloud()
@@ -2369,6 +2561,10 @@ def Generate_Random_SceneFlow(start = 1, step=1, lidar_hight = 3.4, prefixed_V_n
                 pcd_pred.paint_uniform_color([1,0,1])
 
                 first_v_raw_rot = first_v_raw_trans[3:]
+                # if first_v_raw_rot[1] < 0.0:
+                #     first_v_raw_rot[1] = -1.0 * first_v_raw_rot[1]
+                #     if first_v_raw_rot[0] < 0.0:
+                #         first_v_raw_rot[0] = -1.0 * first_v_raw_rot[0]
                 # first_v_raw_rot[-1] *= -1.0
                 src_ego_bbox_R = o3d.geometry.get_rotation_matrix_from_xyz(first_v_raw_rot)
                 # src_ego_bbox_R = o3d.geometry.get_rotation_matrix_from_xyz(first_v_raw_trans[3:])
@@ -2389,9 +2585,17 @@ def Generate_Random_SceneFlow(start = 1, step=1, lidar_hight = 3.4, prefixed_V_n
 
                 # For the first frame as the origin coordinate
                 # pcd.rotate(src_R_inv, np.zeros(3))
+                # if use_seg:
+                #     pcd.colors = o3d.utility.Vector3dVector(raw_src_pc_color)
+                # else:
                 pcd.paint_uniform_color([0,1,0])
-
+                
                 tgt_v_raw_rot = raw_tgt_v_raw_trans[3:]
+                # if tgt_v_raw_rot[1] < 0.0:
+                #     tgt_v_raw_rot[1] = -1.0 * tgt_v_raw_rot[1]
+                #     if tgt_v_raw_rot[0] < 0.0:
+                #         tgt_v_raw_rot[0] = -1.0 * tgt_v_raw_rot[0]
+                
                 # first_v_raw_rot[-1] *= -1.0
                 tgt_ego_bbox_R = o3d.geometry.get_rotation_matrix_from_xyz(tgt_v_raw_rot)
                 tgt_ego_bbx_center = (np.zeros([3]) @ src_R_inv.T + first_v_raw_trans[:3] - raw_tgt_v_raw_trans[:3]) @ raw_tgt_R.T
@@ -2408,12 +2612,26 @@ def Generate_Random_SceneFlow(start = 1, step=1, lidar_hight = 3.4, prefixed_V_n
                 pcd_cur.points = o3d.utility.Vector3dVector(raw_tgt_pc)
 
                 #For the carla origin coordatinate 
-                # pcd_cur.rotate(tgt_R_inv, tgt_v_raw_trans[:3] )
+                # pcd_cur.rotate(tgt_R_inv, tgt_v_raw_trans[:3])
 
                 #For the first frame as the origin coordinate
                 # pcd_cur.rotate(tgt_R_inv, np.zeros(3))
                 # pcd_cur.translate(tgt_v_raw_trans[:3] - first_v_raw_trans[:3])
                 pcd_cur.paint_uniform_color([1,0,0])
+
+                # flow_metric = np.full([raw_src_pc.shape[0],2], np.nan)
+                # # pre_flow_metric = np.full([src_pc.shape[0],2], np.nan)
+                # # hosdf_dist = hausdorff_distance(raw_src_pc, raw_tgt_pc, distance='cosine')
+                # cd_dist1, cd_dist2 = computeChamfer(raw_src_pc, raw_tgt_pc)
+                # cd_dist = np.mean(cd_dist1, axis=1) + np.mean(cd_dist2, axis=1)
+                # flow_metric[:,0] = hosdf_dist
+                # flow_metric[:,1] = cd_dist
+                
+                # hosdf_dist = hausdorff_distance(src_pc[inds,:], raw_tgt_pc[inds_t,:], distance='euclidean')
+                # cd_dist1, cd_dist2 = computeChamfer(src_pc[inds,:], raw_tgt_pc[inds_t,:])
+                # cd_dist = np.mean(cd_dist1, axis=1) + np.mean(cd_dist2, axis=1)
+                # pre_flow_metric[inds,0] = hosdf_dist
+                # pre_flow_metric[inds,1] = cd_dist
 
                 ind_bkp = ind
                 pre_ego_flow = []
@@ -2424,7 +2642,8 @@ def Generate_Random_SceneFlow(start = 1, step=1, lidar_hight = 3.4, prefixed_V_n
                 fg_inds = []
                 fgrnd_inds_t = np.zeros(raw_tgt_pc.shape[0])
                 fg_inds_t = []
-                for i_ind, item in enumerate([raw_pred_ind, raw_next_ind]):
+                
+                for i_ind, item in enumerate([raw_pred_ind, raw_next_ind]): #[raw_pred_ind, raw_next_ind]
                     next_ind = item
                     if i_ind % 2 == 0:
                         tgt_v_raw_trans = raw_tgt_v_raw_trans2
@@ -2433,6 +2652,7 @@ def Generate_Random_SceneFlow(start = 1, step=1, lidar_hight = 3.4, prefixed_V_n
                         tgt_R_inv = raw_tgt_R_inv2
                         tgt_pc = raw_tgt_pc2
                     else:
+                        # continue
                         tgt_v_raw_trans = raw_tgt_v_raw_trans
                         tgt_sensor_raw_trans = raw_tgt_sensor_raw_trans
                         tgt_R = raw_tgt_R
@@ -2444,6 +2664,8 @@ def Generate_Random_SceneFlow(start = 1, step=1, lidar_hight = 3.4, prefixed_V_n
                     arr_ = (src_pc @ src_R_inv.T + first_v_raw_trans[:3] - tgt_v_raw_trans[:3]) @ tgt_R.T
 
                     oth_cars_info = []
+                    vehicle_frames = []
+                    vehicle_id_frames = []
                     for i in [ind, next_ind]:
                         # if next_ind >= len(label_files):
                         #     break
@@ -2461,18 +2683,100 @@ def Generate_Random_SceneFlow(start = 1, step=1, lidar_hight = 3.4, prefixed_V_n
                         with open(rawtrans_files[i], 'r') as file:
                             raw_log = file.read()
                         oth_car_info = []
+                        vehicle_frame = []
+                        vehicle_id_frame = []
+                        v_Id_ = 0
+                        data_arr = np.full([1,depth], np.nan)
+                        data_arr2 = np.full([1,depth], np.nan)
                         for r in re.findall(glb_label_pattern, raw_log):
                             # print(r[0])
+                            # v_Id_ = 0
+                            data_arr_meta = np.full([1,depth], np.nan)
                             if use_rgb_fov:
                                 if int(r[1]) in det_car_info:
                                     oth_car_info.append([int(r[1])] + list(map(float, r[2:5])) + [np.radians(float(r[5])),\
                                         np.radians(float(r[6])), np.radians(float(r[7]))] + list(map(float, r[-4:])))
+                                    if r[0] in bi_wheels_vehicles_list:
+                                        if oth_car_info[-1][7] <= 0.7: #X
+                                            oth_car_info[-1][7] += dialation_var/3.0
+                                        if oth_car_info[-1][8] <= 0.7: #Y
+                                            oth_car_info[-1][8] += dialation_var/3.0
+                                        if oth_car_info[-1][9] <= 0.9: #Z
+                                            oth_car_info[-1][9] += dialation_var
+                                    if r[0] in finetune_vehicles_list:
+                                        oth_car_info[-1][7] += dialation_var/3.0
+                                        oth_car_info[-1][8] += dialation_var/6.0
+                                        oth_car_info[-1][9] += dialation_var/6.0
                             else:
                                 if r[1] != v[1]:
-                                    oth_car_info.append([int(r[1])] + list(map(float, r[2:5])) + [np.radians(float(r[5])),\
-                                        np.radians(float(r[6])), np.radians(float(r[7]))] + list(map(float, r[-4:])))
+                                    # pitch = np.radians(float(r[6]))
+                                    if np.radians(float(r[6])) * first_v_raw_rot[1]< 0.0:
+                                        pitch = - np.radians(float(r[6]))
+                                        if np.radians(float(r[5])) * first_v_raw_rot[0] < 0.0:
+                                            roll = -1.0 * np.radians(float(r[5]))
+                                        else:
+                                            roll = np.radians(float(r[5]))
+                                    else:
+                                        pitch = np.radians(float(r[6]))
+                                        if np.radians(float(r[5])) * first_v_raw_rot[0] < 0.0:
+                                            roll = -1.0 * np.radians(float(r[5]))
+                                        else:
+                                            roll = np.radians(float(r[5]))
+                                    oth_car_info.append([int(r[1])] + list(map(float, r[2:5])) + [roll,\
+                                        pitch, np.radians(float(r[7]))] + list(map(float, r[-4:])))
+                                    if r[0] in bi_wheels_vehicles_list:
+                                        if oth_car_info[-1][7] <= 0.7: #X
+                                            oth_car_info[-1][7] += dialation_var/3.0
+                                        if oth_car_info[-1][8] <= 0.7: #Y
+                                            oth_car_info[-1][8] += dialation_var/3.0
+                                        if oth_car_info[-1][9] <= 0.9: #Z
+                                            oth_car_info[-1][9] += dialation_var
+                                    if r[0] in finetune_vehicles_list:
+                                        oth_car_info[-1][7] += dialation_var/2.0
+                                        oth_car_info[-1][8] += dialation_var/6.0
+                                        oth_car_info[-1][9] += dialation_var/6.0
+                                    if ana_data:
+                                        vehicle_frame.append([ind, r[0]+'_'+r[1]])
+                                        vehicle_id_frame.append([ind, r[0], r[1]])
+                                        data_arr_meta[0,:10] = [int(r[1]), np.nan, np.nan, np.nan, float(r[2])-first_v_raw_trans[0], -1.0 * float(r[3])-first_v_raw_trans[1], float(r[4])-first_v_raw_trans[2], float(r[-3]), float(r[-2]), float(r[-1])] 
+                                        if r[0] in bi_wheels_vehicles_list:
+                                            if data_arr_meta[0,7] <= 0.7:
+                                                data_arr_meta[0,7] += dialation_var/3.0
+                                            if data_arr_meta[0,8] <= 0.7:
+                                                data_arr_meta[0,8] += dialation_var/3.0
+                                            if data_arr_meta[0,9] <= 0.9:
+                                                data_arr_meta[0,9] += dialation_var
+                                        if r[0] in finetune_vehicles_list:
+                                            data_arr_meta[0,7] += dialation_var/2.0
+                                            data_arr_meta[0,8] += dialation_var/6.0
+                                            data_arr_meta[0,9] += dialation_var/6.0
+                                        if i_ind == 0:
+                                            if v_Id_==0:
+                                                data_arr = data_arr_meta
+                                            else:
+                                                data_arr = np.vstack((data_arr, data_arr_meta))
+                                        else:
+                                            if v_Id_==0:
+                                                data_arr2 = data_arr_meta
+                                            else:
+                                                data_arr2 = np.vstack((data_arr2, data_arr_meta))
+                            v_Id_ = v_Id_ + 1      
                         if len(oth_car_info) > 0:
                             oth_cars_info.append(oth_car_info)
+                        if ana_data:
+                            vehicle_frames.append(vehicle_frame)
+                            vehicle_id_frames.append(vehicle_id_frame)
+                        
+                    if ana_data:
+                        vehicle_list.append(vehicle_frames)
+                        if i_ind == 0:
+                            data_arr_list.append(data_arr)
+                        else:
+                            data_arr2_list.append(data_arr2)
+                        vehicle_list2 = np.array(vehicle_frames)
+                        vehicle_id_frames = np.array(vehicle_id_frames)
+                        vehciles_dict = dict(zip(vehicle_list2[0,:,1], np.arange(0,vehicle_list2.shape[2])))
+                        vehciles_id_dict = dict(zip(map(float,vehicle_id_frames[0,:,2]), np.arange(0,vehicle_list2.shape[1])))
                         # print(oth_car_info)
 
                     # print(first_v_raw_trans)
@@ -2500,7 +2804,11 @@ def Generate_Random_SceneFlow(start = 1, step=1, lidar_hight = 3.4, prefixed_V_n
                             # continue
                         else:
                             oth_v_loc = np.array(oth_cars_info[iv])[:,1:4] * np.array([1.0, -1.0, 1.0])
-                            oth_v_loc[:,-1] = oth_v_loc[:,-1] + np.array(oth_cars_info[iv])[:,-1] - lidar_hight
+
+                            # oth_v_loc[:,-1] = oth_v_loc[:,-1] #+ np.array(oth_cars_info[iv])[:,-1] # - lidar_hight
+                            # xxxxxx 2023-04-10 增加
+                            # oth_v_loc[:,-1] = oth_v_loc[:,-1] + np.array(oth_cars_info[iv])[:,-1] - lidar_hight 
+
                             oth_v_rot = np.array(oth_cars_info[iv])[:,4:7]
                             oth_v_bbx_ext = np.array(oth_cars_info[iv])[:,-4:]
 
@@ -2510,18 +2818,22 @@ def Generate_Random_SceneFlow(start = 1, step=1, lidar_hight = 3.4, prefixed_V_n
                             obj_bbox_R = []
 
                             for ibbx in range(oth_v_loc.shape[0]):
-                                # bbox_v_rot = -1.0 * oth_v_rot[ibbx, :] + np.array([0.0, 0.0, 2.0 * np.pi])
-                                bbox_v_rot = lcl_rot_v[iv] - oth_v_rot[ibbx, :] #The relative rotation between the ego_vehcicle and others in the same frame
+                                bbox_v_rot = lcl_rot_v[iv] - oth_v_rot[ibbx, :]#The relative rotation between the ego_vehcicle and others in the same frame
+
                                 bbox_R = o3d.geometry.get_rotation_matrix_from_xyz(bbox_v_rot)
-                                # bbox_R = bbox_R @ o3d.geometry.get_rotation_matrix_from_xyz(lcl_rot_v[iv]) 
-                                #For the local (observation) coordinates
+                                # For the local (observation) coordinates
                                 obj_bbox_R.append(bbox_v_rot)
                         
-                                bbox_extend = oth_v_bbx_ext[ibbx, :-1] * 2.0
                                 #For the local (observation) coordinates
-                                bbox_center = lcl_R[iv] @ (oth_v_loc[ibbx,:] - lcl_trans_v[iv]) #The relative shift between the ego_vehcicle and others in the same frame
+                                bbox_center = lcl_R[iv] @ (oth_v_loc[ibbx,:] - lcl_trans_v[iv])#The relative shift between the ego_vehcicle and others in the same frame
+
+                                bbox_extend = oth_v_bbx_ext[ibbx, :-1] * 2.0
+
                                 #For the original coordinates
                                 # bbox_center = lcl_R[iv] @ oth_v_loc[ibbx,:]
+                                # xxxxxx 2023-04-10
+                                bbox_center[-1] += oth_v_bbx_ext[ibbx, -1] - lidar_hight
+                               
                                 # print(bbox_center)
                                 obj_flow.append(np.hstack((np.array(oth_cars_info[iv][ibbx][0]), np.array(bbox_center))))
                                 #For the local (observation) coordinates
@@ -2533,7 +2845,6 @@ def Generate_Random_SceneFlow(start = 1, step=1, lidar_hight = 3.4, prefixed_V_n
                                     bbox.color = colors2[iv]
                                 else:
                                     bbox.color = colors[iv]
-                                # bbox.LineSet = 
                                 vis_list.append(bbox)
                             objs_flow.append(obj_flow)
                             objs_bbx.append(obj_bbx)
@@ -2585,6 +2896,40 @@ def Generate_Random_SceneFlow(start = 1, step=1, lidar_hight = 3.4, prefixed_V_n
                                 # print(obj_flow)
                                 
                                 objs_flow.append(obj_flow)
+                                if ana_data:
+                                    v_id = vehciles_id_dict.get(k)
+                                    if len(inds) > 0 or len(inds_t) > 0:
+                                        if len(inds) > 0 and len(inds_t) > 0:
+                                            hosdf_dist = hausdorff_distance(arr_[inds,:], (raw_tgt_pc[inds_t,:]).astype('float64'), distance='euclidean')
+                                            cd_dist1, cd_dist2 = computeChamfer(arr_[inds,:], (raw_tgt_pc[inds_t,:]).astype('float64'))
+                                        if len(inds) > 0 and len(inds_t) == 0:
+                                            hosdf_dist = hausdorff_distance(arr_[inds,:], tgt_objs_flow.get(k).reshape([1,3]).astype('float64'), distance='euclidean')
+                                            cd_dist1, cd_dist2 = computeChamfer(arr_[inds,:], tgt_objs_flow.get(k).reshape([1,3]).astype('float64'))
+                                        if len(inds) == 0 and len(inds_t) > 0:
+                                            hosdf_dist = hausdorff_distance(v.reshape([1,3]).astype('float64'), (raw_tgt_pc[inds_t,:]).astype('float64'), distance='euclidean')
+                                            cd_dist1, cd_dist2 = computeChamfer(v.reshape([1,3]).astype('float64'), (raw_tgt_pc[inds_t,:]).astype('float64'))
+                                        if len(cd_dist1.shape) >= 1:
+                                            cd_dist1 = np.mean(cd_dist1, axis=0)
+                                        if len(cd_dist2.shape) >= 1:
+                                            cd_dist2 = np.mean(cd_dist2, axis=0)
+                                        cd_dist = cd_dist1 + cd_dist2
+                                    # if i_ind == 0:
+                                    #     flow_metric[inds,0] = hosdf_dist
+                                    #     flow_metric[inds,1] = cd_dist
+                                    # else:
+                                    #     pre_flow_metric[inds,0] = hosdf_dist
+                                    #     pre_flow_metric[inds,1] = cd_dist
+                                    else:
+                                        hosdf_dist = np.nan
+                                        cd_dist = np.nan
+                                    # if ana_data:
+                                    if v_id.T is not None:
+                                        if i_ind == 0:
+                                            data_arr_list[ind-start][v_id.T, 1:4] = tgt_objs_flow.get(k) - v
+                                            data_arr_list[ind-start][v_id.T, 10:] = [len(inds), len(inds_t), hosdf_dist, cd_dist]
+                                        else:
+                                            data_arr2_list[ind-start][v_id.T, 1:4] = tgt_objs_flow.get(k) - v
+                                            data_arr2_list[ind-start][v_id.T, 10:] = [len(inds), len(inds_t), hosdf_dist, cd_dist]
                             # delta_flow = np.array(objs_flow) - subflow
                             objs_flow = dict(zip(src_objs_flow.keys(), objs_flow))
                             flow = 1.0 * (arr_ - arr)
@@ -2620,6 +2965,11 @@ def Generate_Random_SceneFlow(start = 1, step=1, lidar_hight = 3.4, prefixed_V_n
                             np.savez(DATASET_SF_PATH + name_fmt, pos1=src_pc[fg_inds,:], pos2=raw_tgt_pc[fg_inds_t,:], pos3=raw_tgt_pc2, ego_flow=ego_flow[fg_inds,:], gt=flow[fg_inds,:], pre_ego_flow=pre_ego_flow[fg_inds,:], pre_gt=pre_flow[fg_inds,:], s_fg_mask = fgrnd_inds, t_fg_mask = fgrnd_inds_t) 
                         else:
                             np.savez(DATASET_SF_PATH + name_fmt, pos1=src_pc, pos2=raw_tgt_pc, pos3=raw_tgt_pc2, ego_flow=ego_flow, gt=flow, pre_ego_flow=pre_ego_flow, pre_gt=pre_flow, s_fg_mask = fgrnd_inds, t_fg_mask = fgrnd_inds_t) 
+                    
+                    vis_data = False
+                    if vis_data:
+                        vis_list = []
+                        vis_list = [src_pc]
                     if show_fgrnds:
                         if i_ind % 2 != 0:
                             tgt_pc = tgt_pc[fg_inds_t,:]
@@ -2649,24 +2999,28 @@ def Generate_Random_SceneFlow(start = 1, step=1, lidar_hight = 3.4, prefixed_V_n
                 # name_fmt = "%06d"%(ind)
                 # if save_pts:
                 #     np.savez(DATASET_SF_PATH + name_fmt, pos1=src_pc, pos2=tgt_pc, ego_flow=ego_flow, gt=flow) 
-
-                    if use_flow:
-                        # sf = sf[sample_idx1, :]
-                        np_list = [src_pc, tgt_pc, arr_, flow]
-                        # np_list = [src_pc, tgt_pc, arr_, ego_flow]   
-                        # np_list = [src_pc_bkp, tgt_pc_bkp, arr_ + tgt_v_raw_trans[:3], ego_flow_bkp]                 
-                        # np_list = [src_pc_bkp, tgt_pc_bkp, arr_ + tgt_v_raw_trans[:3], flow_bkp]
+                    vis_data = False
+                    if vis_data:
+                        use_flow = False
+                        np_list = [src_pc, tgt_pc] + vis_list
                     else:
-                        np_list = [src_pc, tgt_pc, arr_,]
-                        # np_list = [src_pc_bkp, tgt_pc_bkp, arr_, flow]
+                        if use_flow:
+                            # sf = sf[sample_idx1, :]
+                            np_list = [src_pc, tgt_pc, arr_, flow]
+                            # np_list = [src_pc, tgt_pc, arr_, ego_flow]   
+                            # np_list = [src_pc_bkp, tgt_pc_bkp, arr_ + tgt_v_raw_trans[:3], ego_flow_bkp]                 
+                            # np_list = [src_pc_bkp, tgt_pc_bkp, arr_ + tgt_v_raw_trans[:3], flow_bkp]
+                        else:
+                            np_list = [src_pc, tgt_pc, arr_,]
+                            # np_list = [src_pc_bkp, tgt_pc_bkp, arr_, flow]
                     
                     # import os
-                    # custom_draw_geometry(vis, vis_list, map_file=None, recording=False,param_file='camera_view.json', save_fov=True)
+                    
                     # print(os.path.abspath(os.curdir))
                     src_pc2 = src_pc - np.mean(src_pc, axis=0)
-                    normp = np.sqrt(np.sum(src_pc2 * src_pc2, axis=1))
+                    # normp = np.sqrt(np.sum(src_pc2 * src_pc2, axis=1))
                     # diameter = np.max(normp)
-                    print("Define parameters used for hidden_point_removal")
+                    # print("Define parameters used for hidden_point_removal")
                     
                     # camera = [-1.0, 0.0, 5]
                     # mesh = o3d.geometry.TriangleMesh.create_coordinate_frame(size=3).translate(camera)
@@ -2705,7 +3059,7 @@ def Generate_Random_SceneFlow(start = 1, step=1, lidar_hight = 3.4, prefixed_V_n
                     # np_list = vis_list
                     use_flow = False
                     if i_ind % 2:
-                        if not(enable_animation):
+                        if not(enable_animation) and show_vis:
                             vis = o3d.visualization.Visualizer()
                             vis.create_window(width=960*2, height=640*2, left=5, top=5)
                             vis.get_render_option().background_color = np.array([0,0,0])
@@ -2715,16 +3069,20 @@ def Generate_Random_SceneFlow(start = 1, step=1, lidar_hight = 3.4, prefixed_V_n
                             vis.get_render_option().line_width = 5.0
                         Draw_SceneFlow(vis, np_list+vis_list, use_fast_vis = not(use_flow), use_pred_t=True, use_custom_color=True, use_flow=use_flow, param_file='camera_view.json',img_cnt=img_cnt)
                         img_cnt = img_cnt + 1
-                
+            if ana_data: 
+                file_name = DATASET_SF_PATH2 + "%02d"%(sub_dir_cnt) + '_sf_traj.npz'
+                np.savez(file_name, data_arr_krnt=data_arr_list, data_arr_pre=data_arr2_list, vehicle_list= vehicle_list, vehciles_dict=vehciles_dict)   
         sub_dir_cnt += 1
     if egoV_flag:
         np.savez(egoV_file_path, cvInfo = current_v_info, nvInfo = next_v_info)
+    if save_active_v_list:
+        np.save(egoV_file_path+'active_v.npy',np.array(active_vehicle_list))
 
 
 
 # For scenario difference measure
 
-def Generate_Active_SceneFlow(car_ids, start = 3, step = 3, lidar_hight = 3.4, prefixed_V_name=None, show_active_egoV=False, save_pts=False, enable_animation = True, egoV_flag=False, rm_ground = False, show_fgrnds = True, egoV_file_path = './data/data_Vinfo0307', GT_SUB_DATASET='vehicle.mini.cooper_s_2021_254', ACTIVE_SUB_DATASET='vehicle.mini.cooper_s_2021_1280'):
+def Generate_Active_SceneFlow(start = 3, step = 3, lidar_hight = 3.4, sub_dir_cnt=0, prefixed_V_name=None, show_active_egoV=False, save_pts=False, enable_animation = True, egoV_flag=False, rm_ground = False, show_fgrnds = True, egoV_file_path = './data/data_Vinfo0307', GT_SUB_DATASET='vehicle.mini.cooper_s_2021_254', ACTIVE_SUB_DATASET='vehicle.mini.cooper_s_2021_1280'):
     if step == 1:
         SF_DIR = '/SF/'
     elif step == 2:
@@ -2737,57 +3095,24 @@ def Generate_Active_SceneFlow(car_ids, start = 3, step = 3, lidar_hight = 3.4, p
     # show_fgrnds = True
     
     start = start
-    drivable_areas = odom_utils.readPointCloud('./dataset/town02-map.bin') #road map
-    drivable_area = drivable_areas[:,:3]
-    drivable_area[:,-1] = -1.0 * lidar_hight
-    road_id = drivable_areas[:,-1]
-    colors = []
-    for iCnt in road_id:
-        if iCnt == 0:
-            colors += [[1,0,0]]
-        elif iCnt == 1:
-            colors += [[0,1,0]]
-        elif iCnt == 2:
-            colors += [[0,0,1]]
-        elif iCnt == 3:
-            colors += [[1,1,0]]
-        else:
-            colors += [[1,0,1]]
-    #指定实验道路
-    iou_id = np.argwhere(road_id == 1)
+    img_cnt = 0
+    # show_fgrnds = True
+    use_map = True
+    use_seg = True
+    ana_data = False
+    if use_map:
+        drivable_area = np.load('./town02_map.npy')
+        # drivable_area = drivable_areas[:,:3]
+        drivable_area[:,-1] = -1.0 * lidar_hight
+        
+        # drivable_area[:,0] *= -1
+        pcd_drivable_area = o3d.geometry.PointCloud()
+        # pcd_drivable_area.points = o3d.utility.Vector3dVector(drivable_area)
+        drivable_area_bkp = drivable_area
+        # pcd_drivable_area.colors = o3d.utility.Vector3dVector(np.array(colors, dtype=np.dtype('f4')))
+        pcd_drivable_area.paint_uniform_color([1,1,0])
 
-    drivable_centers = np.load('./dataset/np_c.npy')#odom_utils.readPointCloud('./dataset/town02-road-center.bin')
-    drivable_center = drivable_centers[:,:3]
-    drivable_center[:, -1] = -1.0 * lidar_hight
-    drivable_center[:,1] *= -1.0
-    road_id2 = []
-    road_id2 = drivable_centers[:,-1]
-    ref_drivable_center_inds = np.argwhere(drivable_centers[:,-1] == 1)
-    colors2 = []
-    for iCnt in road_id2:
-        if iCnt < 1:
-            colors2 += [[1,0,0]]
-        elif iCnt >= 1  and iCnt < 2:
-            colors2 += [[0,1,0]]
-        elif iCnt >= 2 and iCnt < 3:
-            colors2 += [[0,0,1]]
-        elif iCnt >= 3 and iCnt < 4:
-            colors2 += [[1,1,0]]
-        else:
-            colors2 += [[1,0,1]]
-
-    
-    # drivable_area[:,0] *= -1
-    pcd_drivable_area = o3d.geometry.PointCloud()
-    # pcd_drivable_area.points = o3d.utility.Vector3dVector(drivable_area)
-    drivable_area_bkp = drivable_area
-    pcd_drivable_area.colors = o3d.utility.Vector3dVector(np.array(colors, dtype=np.dtype('f4')))
-
-    pcd_drivable_center = o3d.geometry.PointCloud()
-    # pcd_drivable_area.points = o3d.utility.Vector3dVector(drivable_center)
-    drivable_center_bkp = drivable_center
-    pcd_drivable_center.colors = o3d.utility.Vector3dVector(np.array(colors2, dtype=np.dtype('f4')))
-                
+                    
     # Compute_PairwiseSceneFlow(start, 5)
 
     # Translate frame coordinates from left-hand to right-hand
@@ -2831,7 +3156,7 @@ def Generate_Active_SceneFlow(car_ids, start = 3, step = 3, lidar_hight = 3.4, p
     #         # print(r[0])
     #         det_car_info.append(int(float(r[0])))
     # print(os.path.abspath(os.curdir))
-    sub_dir_cnt = 0
+    # sub_dir_cnt = 10
     max_v = -100.0
     # v_info_cnt = 0
     current_v_info = []
@@ -2842,20 +3167,20 @@ def Generate_Active_SceneFlow(car_ids, start = 3, step = 3, lidar_hight = 3.4, p
             continue 
         # print(sub_dir)
 
-        SUB_DATASET = 'vehicle.mini.cooper_s_2021_1520' #sub_dir #'vehicle.tesla.cybertruck_266'#'vehicle.citroen.c3_271'
+        # SUB_DATASET = 'vehicle.mini.cooper_s_2021_1520' #sub_dir #'vehicle.tesla.cybertruck_266'#'vehicle.citroen.c3_271'
         SUB_DATASET = GT_SUB_DATASET #'vehicle.mini.cooper_s_2021_254' #sub_dir #'vehicle.tesla.cybertruck_266'#'vehicle.citroen.c3_271'
         # SUB_DATASET = 'vehicle.mini.cooper_s_2021_406' #sub_dir #'vehicle.tesla.cybertruck_266'#'vehicle.citroen.c3_271'
-        SUB_DATASET2 = 'vehicle.mini.cooper_s_2021_402' #sub_dir #'vehicle.tesla.cybertruck_266'#'vehicle.citroen.c3_271'
+        # SUB_DATASET2 = 'vehicle.mini.cooper_s_2021_402' #sub_dir #'vehicle.tesla.cybertruck_266'#'vehicle.citroen.c3_271'
         SUB_DATASET2 = ACTIVE_SUB_DATASET #'vehicle.mini.cooper_s_2021_254' #sub_dir #'vehicle.tesla.cybertruck_266'#'vehicle.citroen.c3_271'
         if sub_dir not in SUB_DATASET:
             continue
         v_pattern = r"[vehicle]+.(?P<name>\w+.\w+)_(?P<v_id>\d+)"
         v = re.findall(v_pattern, SUB_DATASET)[0]
-        DATASET_PC_PATH = DATASET_PATH + SUB_DATASET + '/velodyne/'
+        DATASET_PC_PATH = DATASET_PATH + SUB_DATASET + '/velodyne_seg/'
         DATASET_LBL_PATH = DATASET_PATH + SUB_DATASET + '/label00/'
 
         v2 = re.findall(v_pattern, SUB_DATASET2)[0]
-        DATASET_PC_PATH2 = DATASET_PATH2 + SUB_DATASET2 + '/velodyne/'
+        DATASET_PC_PATH2 = DATASET_PATH2 + SUB_DATASET2 + '/velodyne_seg/'
         DATASET_LBL_PATH2 = DATASET_PATH2 + SUB_DATASET2 + '/label00/'
 
         # RESULT_PATH = './results/' + SUB_DATASET
@@ -2913,7 +3238,7 @@ def Generate_Active_SceneFlow(car_ids, start = 3, step = 3, lidar_hight = 3.4, p
         label_files2.sort()
 
         total_cmd_num = len(pc_files)
-        frame_start,frame_end,frame_hz = 10,-5,1
+        frame_start,frame_end,frame_hz = start,start,1
         spawn_points = []
         cnt = 0
 
@@ -2937,11 +3262,12 @@ def Generate_Active_SceneFlow(car_ids, start = 3, step = 3, lidar_hight = 3.4, p
             write_labels('record2021_0716_2146/', sub_dir, frame_start,frame_end, frame_hz, index=1)
         else:
             # step = 1
-            for ind in range(start, len(pc_files)-step, step):
-                next_ind = ind #+ step
+            for ind in range(start, len(pc_files)-frame_end, step):
+                next_ind = ind + 1
                 if next_ind >= len(label_files):
                         break
                 print("Current DIR:" + DATASET_PC_PATH + ' Frame:' +str(ind))
+                print("Current DIR:" + DATASET_PC_PATH2 + ' Frame:' +str(ind+step))
                 # tmp = cmd_traj[ind, ]
                 # saveVehicleInfo()
                 
@@ -2971,11 +3297,21 @@ def Generate_Active_SceneFlow(car_ids, start = 3, step = 3, lidar_hight = 3.4, p
                 first_v_raw_trans = odom_utils.readRawData(rawtrans_files[ind], trans_pattern) * v_l2r
                 first_sensor_raw_trans = odom_utils.readRawData(rawtrans_files[ind], lidar_semantic_pattern) * s_l2r
 
-                src_pc = odom_utils.readPointCloud(pc_files[ind])[:, :3]
+                if use_seg:
+                    src_pc_0 = odom_utils.readPointCloud(pc_files[ind], use_seg=use_seg)
+                    src_pc = src_pc_0[:, :3]
+                    src_pc_att = src_pc_0[:, -1]
+                else:
+                    src_pc = odom_utils.readPointCloud(pc_files[ind], use_seg=use_seg)[:, :3]
                 src_pc_bkp = src_pc + first_v_raw_trans[:3]
                 if rm_ground:
-                    is_ground = np.logical_not(src_pc[:, 2] <= -1.0 * (lidar_hight-0.1))
+                    if use_seg:
+                        is_ground = np.logical_not(np.logical_or(src_pc_att == 7.0,src_pc_att == 6.0))
+                    else:
+                        is_ground = np.logical_not(src_pc[:, 2] <= -1.0 * (lidar_hight-0.1))
                     src_pc = src_pc[is_ground, :] 
+                    src_pc_att = src_pc_att[is_ground] 
+
                 # np.save('./data/np_src', src_pc)
                 # For the carla origin coordatinate 
                 # first_v_raw_trans[2] += 2.5
@@ -2984,23 +3320,25 @@ def Generate_Active_SceneFlow(car_ids, start = 3, step = 3, lidar_hight = 3.4, p
                 # ## For the carla original coordinate
                 # drivable_area = drivable_area_bkp @ np.array([[0,-1,0],[1,0,0],[0,0,1]])
 
-                ## For the first car frame as the original coordinate
-                drivable_area = (drivable_area_bkp - first_v_raw_trans[:3])\
-                     @ odom_utils.rotation_from_euler_zyx(-first_v_raw_trans[5], -first_v_raw_trans[4],first_v_raw_trans[3])#
-                pcd_drivable_area.points = o3d.utility.Vector3dVector(drivable_area)
-                # np.save('./data/np_drivable_area', np.hstack((drivable_area, (drivable_areas[:,-1]).reshape((-1,1)))))
-                
-                ## For the carla original coordinate
-                # drivable_center = drivable_center_bkp @ np.array([[0,-1,0],[1,0,0],[0,0,1]])
+                if use_map:
+                    ## For the first car frame as the original coordinate
+                    drivable_area = (drivable_area_bkp - first_v_raw_trans[:3])\
+                        @ odom_utils.rotation_from_euler_zyx(-first_v_raw_trans[5], -first_v_raw_trans[4],first_v_raw_trans[3])#
+                    pcd_drivable_area.points = o3d.utility.Vector3dVector(drivable_area)
+                    pcd_drivable_area.paint_uniform_color([1.0,1.0,0.0])
+                    # np.save('./data/np_drivable_area', np.hstack((drivable_area, (drivable_areas[:,-1]).reshape((-1,1)))))
+                    
+                    ## For the carla original coordinate
+                    # drivable_center = drivable_center_bkp @ np.array([[0,-1,0],[1,0,0],[0,0,1]])
 
-                # For the first car frame as the original coordinate
-                drivable_center = (drivable_center_bkp - first_v_raw_trans[:3])\
-                     @ odom_utils.rotation_from_euler_zyx(-first_v_raw_trans[5], -first_v_raw_trans[4],first_v_raw_trans[3])#
-                pcd_drivable_center.points = o3d.utility.Vector3dVector(drivable_center)
-                # pcd_drivable_area.paint_uniform_color([1.0,0,0.0])
-                ref_drivable_center = drivable_centers[ref_drivable_center_inds[:,0],:3]
+                    # # For the first car frame as the original coordinate
+                    # drivable_center = (drivable_center_bkp - first_v_raw_trans[:3])\
+                    #      @ odom_utils.rotation_from_euler_zyx(-first_v_raw_trans[5], -first_v_raw_trans[4],first_v_raw_trans[3])#
+                    # pcd_drivable_center.points = o3d.utility.Vector3dVector(drivable_center)
+                    # # pcd_drivable_area.paint_uniform_color([1.0,0,0.0])
+                    # ref_drivable_center = drivable_centers[ref_drivable_center_inds[:,0],:3]
 
-                # np.save('./data/np_drivable_center', np.hstack((drivable_center, (drivable_centers[:,-1]).reshape((-1,1)))))
+                    # np.save('./data/np_drivable_center', np.hstack((drivable_center, (drivable_centers[:,-1]).reshape((-1,1)))))
 
                 arr = src_pc
                 
@@ -3022,13 +3360,11 @@ def Generate_Active_SceneFlow(car_ids, start = 3, step = 3, lidar_hight = 3.4, p
                
                 # drivable_area =  drivable_area - (np.array([[spawn_points[ind][0], -spawn_points[ind][1], 0]]))
                 
-                vis_list = [mesh_frame, pcd_drivable_area, pcd_drivable_center]
+                vis_list = [mesh_frame, pcd_drivable_area]
                 # vis_list = [mesh_frame, pcd]
                 
                 tgt_v_raw_trans = odom_utils.readRawData(rawtrans_files2[next_ind], trans_pattern2) * v_l2r
 
-                print(first_v_raw_trans[:3])
-                print(tgt_v_raw_trans[:3])
                 # tgt_v_raw_trans2 = odom_utils.readRawData(rawtrans_files2[next_ind], trans_pattern2) * v_l2r
                 # tgt_v_raw_trans0 = odom_utils.readRawData(rawtrans_files[next_ind], trans_pattern2) * v_l2r
                 # print(first_v_raw_trans)
@@ -3036,12 +3372,29 @@ def Generate_Active_SceneFlow(car_ids, start = 3, step = 3, lidar_hight = 3.4, p
                 # print(tgt_v_raw_trans)
                 # print(tgt_v_raw_trans2)
                 tgt_sensor_raw_trans = odom_utils.readRawData(rawtrans_files2[next_ind], lidar_semantic_pattern2) * s_l2r
-                tgt_pc = odom_utils.readPointCloud(pc_files2[next_ind])[:, :3]
+
+                if use_seg:
+                    tgt_pc_0 = odom_utils.readPointCloud(pc_files2[next_ind], use_seg=use_seg)
+                    tgt_pc = tgt_pc_0[:, :3]
+                    tgt_pc_att = tgt_pc_0[:, -1]
+                else:
+                    tgt_pc = odom_utils.readPointCloud(pc_files2[next_ind])[:, :3]
 
                 tgt_pc_bkp = tgt_pc + tgt_v_raw_trans[:3]
                 if rm_ground:
-                    is_ground = np.logical_not(tgt_pc[:, 2] <= -1.0 * (lidar_hight - 0.05))
+                    if use_seg:
+                        is_ground = np.logical_not(np.logical_or(tgt_pc_att == 7.0, tgt_pc_att == 6.0))
+                    else:
+                        is_ground = np.logical_not(tgt_pc[:, 2] <= -1.0 * (lidar_hight-0.1))
                     tgt_pc = tgt_pc[is_ground, :] 
+                    tgt_pc_att = tgt_pc_att[is_ground]
+                
+                print(first_v_raw_trans)
+                print(tgt_v_raw_trans)
+
+                # if rm_ground:
+                #     is_ground = np.logical_not(tgt_pc[:, 2] <= -1.0 * (lidar_hight - 0.05))
+                #     tgt_pc = tgt_pc[is_ground, :] 
 
                 #For the carla origin coordatinate 
                 # tgt_v_raw_trans[2] += 2.5
@@ -3108,6 +3461,7 @@ def Generate_Active_SceneFlow(car_ids, start = 3, step = 3, lidar_hight = 3.4, p
                 # pcd_cur.translate(tgt_v_raw_trans[:3] - first_v_raw_trans[:3])
                 pcd_cur.paint_uniform_color([1,0,0])
                 
+                # arr = src_pc
                 arr_ = (src_pc @ src_R_inv.T + first_v_raw_trans[:3] - tgt_v_raw_trans[:3]) @ tgt_R.T
 
                 alternation_flag = 2
@@ -3117,8 +3471,6 @@ def Generate_Active_SceneFlow(car_ids, start = 3, step = 3, lidar_hight = 3.4, p
                 fgrnd_inds_t = np.zeros(tgt_pc.shape[0])
                 fg_inds_t = []
                 for  iflag, i in enumerate([ind, next_ind]):
-                    # if next_ind >= len(label_files):
-                    #     break
                     if iflag % alternation_flag == 0:
                         with open(label_files[i], 'r') as file:
                                 log = file.read()
@@ -3131,10 +3483,7 @@ def Generate_Active_SceneFlow(car_ids, start = 3, step = 3, lidar_hight = 3.4, p
                     if use_rgb_fov:
                         for r in re.findall(rgb_label_pattern, log):
                             det_car_info.append(int(r[-1]))
-                    # else:
-                    #     for r in re.findall(lidar_label_pattern, log):
-                    #         # print(r[0])
-                    #         det_car_info.append(int(float(r[0])))
+
                     if iflag % alternation_flag == 0:
                         with open(rawtrans_files[i], 'r') as file:
                             raw_log = file.read()
@@ -3152,6 +3501,7 @@ def Generate_Active_SceneFlow(car_ids, start = 3, step = 3, lidar_hight = 3.4, p
                             if r[1] != v[1]:
                                 oth_car_info.append([int(r[1])] + list(map(float, r[2:5])) + [np.radians(float(r[5])),\
                                     np.radians(float(r[6])), np.radians(float(r[7]))] + list(map(float, r[-4:])))
+
                     if len(oth_car_info) > 0:
                         oth_cars_info.append(oth_car_info)
                     # print(oth_car_info)
@@ -3179,7 +3529,7 @@ def Generate_Active_SceneFlow(car_ids, start = 3, step = 3, lidar_hight = 3.4, p
                         # continue
                     else:
                         oth_v_loc = np.array(oth_cars_info[iv])[:,1:4] * np.array([1.0, -1.0, 1.0])
-                        oth_v_loc[:,-1] = oth_v_loc[:,-1] + np.array(oth_cars_info[iv])[:,-1] - lidar_hight
+                        # oth_v_loc[:,-1] = oth_v_loc[:,-1] + np.array(oth_cars_info[iv])[:,-1] - lidar_hight
                         oth_v_rot = np.array(oth_cars_info[iv])[:,4:7]
                         oth_v_bbx_ext = np.array(oth_cars_info[iv])[:,-4:]
 
@@ -3198,6 +3548,8 @@ def Generate_Active_SceneFlow(car_ids, start = 3, step = 3, lidar_hight = 3.4, p
                             bbox_extend = oth_v_bbx_ext[ibbx, :-1] * 2.0
                             #For the local (observation) coordinates
                             bbox_center = lcl_R[iv] @ (oth_v_loc[ibbx,:] - lcl_trans_v[iv])
+
+                            bbox_center[-1] += oth_v_bbx_ext[ibbx, -1] - lidar_hight
                             #For the original coordinates
                             # bbox_center = lcl_R[iv] @ oth_v_loc[ibbx,:]
                             # print(bbox_center)
@@ -3322,31 +3674,6 @@ def Generate_Active_SceneFlow(car_ids, start = 3, step = 3, lidar_hight = 3.4, p
                     arr_ = arr_[fg_inds,:]
                     ego_flow = ego_flow[fg_inds,:]
                     flow = flow[fg_inds,:]
-                # bbox_R = o3d.geometry.get_rotation_matrix_from_xyz(first_v_raw_trans[3:])
-                # ego_car_center = np.zeros([3,1])
-                # ego_car_center[2] = -1.0 * lidar_hight + 0.5 * egoV_bbox_extend[2] #-0.4 * egoV_bbox_extend[2]
-                # ego_car_bbx_c = o3d.geometry.OrientedBoundingBox(ego_car_center, bbox_R, egoV_bbox_extend)
-                # # vis_list.append(ego_car_bbx_c)
-                # inds = ego_car_bbx_c.get_point_indices_within_bounding_box(pcd.points)
-                # valid_inds = np.ones([src_pc.shape[0]])
-                # if len(inds) > 0:
-                #     valid_inds[inds] = 0
-                #     valid_inds = valid_inds.astype(bool)
-                #     src_pc = src_pc[valid_inds,:]
-                #     arr_ = arr_[valid_inds,:]
-                #     ego_flow = ego_flow[valid_inds,:]
-                #     flow = flow[valid_inds,:]
-                #     fg_inds = (fg_inds[valid_inds, :]).astype(bool)
-
-                # bbox_R = o3d.geometry.get_rotation_matrix_from_xyz(tgt_v_raw_trans[3:])
-                # ego_car_bbx_n = o3d.geometry.OrientedBoundingBox(ego_car_center, bbox_R, egoV_bbox_extend)
-                # # vis_list.append(ego_car_bbx_n)
-                # inds = ego_car_bbx_n.get_point_indices_within_bounding_box(pcd_cur.points)
-                # valid_inds = np.ones([tgt_pc.shape[0]])
-                # if len(inds) > 0:
-                #     valid_inds[inds] = 0
-                #     valid_inds = valid_inds.astype(bool)
-                #     tgt_pc = tgt_pc[valid_inds,:]
                 
                 if use_flow:
                     # sf = sf[sample_idx1, :]
@@ -3359,51 +3686,10 @@ def Generate_Active_SceneFlow(car_ids, start = 3, step = 3, lidar_hight = 3.4, p
                     np_list = [src_pc, tgt_pc, arr_,]
                     # np_list = [src_pc_bkp, tgt_pc_bkp, arr_, flow]
                 
-                # # import os
-                # # print(os.path.abspath(os.curdir))
-                # src_pc2 = src_pc - np.mean(src_pc, axis=0)
-                # normp = np.sqrt(np.sum(src_pc2 * src_pc2, axis=1))
-                # diameter = np.max(normp)
-                # print("Define parameters used for hidden_point_removal")
-                
-                # # camera = [-1.0, 0.0, 5]
-                # # mesh = o3d.geometry.TriangleMesh.create_coordinate_frame(size=3).translate(camera)
-                # # print("Get all points that are visible from given view point")
-                # # radius = diameter * 10
-                # # _, pt_map = pcd3.hidden_point_removal(camera, radius)
-                # # pc = np.vstack([pc1, pc2])
-                # # camera = [-45.0, -20.0, drivable_area[0,2]]
-                # # camera = [45.0, -60.0, drivable_area[0,2]]
-                # # camera = [-35.0, -20.0, drivable_area[0,2]]
-                # # camera = [75.0, 1.5, drivable_area[0,2]]
-                # # arr2_ = arr_ + flow
-                # # pt_map = HPR(tgt, np.array([[0, 0, -2.5]]), 3)
-                # # np_arr2 = arr2_[pt_map,:3]
-                # # # print("Visualize result")
-                # # # pcd3 = pcd3.select_by_index(pt_map)
-                # # bool_in = in_convex_polyhedron(arr2_[pt_map,:3],np.array([[-5.0, 4.0, -2.5]]), vis) 
-                # # pcd3 = drivable_area[pt_map,:]
-                # # bool_in = in_convex_polyhedron(drivable_area[iou_id[:,0],:3], np.array([[0, 0, -2.5]]), vis) 
-                # # camera_pos = np.hstack((first_v_raw_trans[:2], -2.75)).reshape(1,3)
-                # # bool_in = in_convex_polyhedron(drivable_area[iou_id[:,0],:3],camera_pos, vis) 
-                # global bbx
-                # # bbx = np.array([[0,0,0], [4,0,0], [0,-4,0], [4,-1,0], [0,0,-2.5], [4,0,-2.5], [0,-4,-2.5], [4,-4,-2.5]]) * 2.0
-                # bbx = np.array([[0,0,0], [4,0,0], [0,-1,0], [4,-1,0], [0,0,-2.5], [4,0,-2.5], [0,-1,-2.5], [4,-1,-2.5]]) * 0.8
-                # # bbx = np.array([[0,0,0], [1,0,0], [0,-1,0], [1,-1,0], [0,0,-2.5], [1,0,-2.5], [0,-1,-2.5], [1,-1,-2.5]]) 
-                # # bool_in, _ = validDrivableArea(bbx, tgt_pc)
-                # bool_in, _ = validateDrivableArea2(bbx, tgt_pc)
-
-                # sphere = o3d.geometry.TriangleMesh.create_sphere(2).translate(np.array([0, 0, -2.5]))
-                # if bool_in:
-                #     sphere.paint_uniform_color([0.2,0.2,1.0])
-                # else:
-                #     sphere.paint_uniform_color([1,0,0])
-                # vis_list += [sphere]
-
-                # np_list = vis_list
+               
                 use_flow = False
                 Draw_SceneFlow(vis, np_list+vis_list, use_fast_vis = not(use_flow), use_pred_t=True, use_custom_color=True, use_flow=use_flow, param_file='camera_view.json')
-        sub_dir_cnt += 1
+        # sub_dir_cnt += 1
     # np.savez('./data/data_0308_1058_Vinfo', cvInfo = current_v_info, nvInfo = next_v_info)
 
 
@@ -3420,7 +3706,7 @@ def Generate_Random_SceneFlow_Paper(start = 3, step = 3, lidar_hight = 3.4, pref
     # show_fgrnds = True
     
     start = start
-    drivable_areas = odom_utils.readPointCloud('./dataset/town02-map.bin') #road map
+    drivable_areas = odom_utils.readPointCloud('./data/town02-map.bin') #road map
     drivable_area = drivable_areas[:,:3]
     drivable_area[:,-1] = -1.0 * lidar_hight
     road_id = drivable_areas[:,-1]
@@ -3439,7 +3725,7 @@ def Generate_Random_SceneFlow_Paper(start = 3, step = 3, lidar_hight = 3.4, pref
     #指定实验道路
     iou_id = np.argwhere(road_id == 1)
 
-    drivable_centers = np.load('./dataset/np_c.npy')#odom_utils.readPointCloud('./dataset/town02-road-center.bin')
+    drivable_centers = np.load('./data/np_c.npy')#odom_utils.readPointCloud('./dataset/town02-road-center.bin')
     drivable_center = drivable_centers[:,:3]
     drivable_center[:, -1] = -1.0 * lidar_hight
     drivable_center[:,1] *= -1.0
@@ -3865,7 +4151,7 @@ def Generate_Random_SceneFlow_Paper(start = 3, step = 3, lidar_hight = 3.4, pref
                         # continue
                     else:
                         oth_v_loc = np.array(oth_cars_info[iv])[:,1:4] * np.array([1.0, -1.0, 1.0])
-                        oth_v_loc[:,-1] = oth_v_loc[:,-1] + np.array(oth_cars_info[iv])[:,-1] - lidar_hight
+                        # oth_v_loc[:,-1] = oth_v_loc[:,-1] + np.array(oth_cars_info[iv])[:,-1] - lidar_hight
                         oth_v_rot = np.array(oth_cars_info[iv])[:,4:7]
                         oth_v_bbx_ext = np.array(oth_cars_info[iv])[:,-4:]
 
@@ -3884,6 +4170,7 @@ def Generate_Random_SceneFlow_Paper(start = 3, step = 3, lidar_hight = 3.4, pref
                             bbox_extend = oth_v_bbx_ext[ibbx, :-1] * 2.0
                             #For the local (observation) coordinates
                             bbox_center = lcl_R[iv] @ (oth_v_loc[ibbx,:] - lcl_trans_v[iv])
+                            bbox_center[-1] += oth_v_bbx_ext[ibbx, -1] - lidar_hight
                             #For the original coordinates
                             # bbox_center = lcl_R[iv] @ oth_v_loc[ibbx,:]
                             # print(bbox_center)
@@ -4077,13 +4364,14 @@ def Generate_Random_SceneFlow_Paper(start = 3, step = 3, lidar_hight = 3.4, pref
                 bbx = np.array([[0,0,0], [4,0,0], [0,-1,0], [4,-1,0], [0,0,-2.5], [4,0,-2.5], [0,-1,-2.5], [4,-1,-2.5]]) * 0.8
                 # bbx = np.array([[0,0,0], [1,0,0], [0,-1,0], [1,-1,0], [0,0,-2.5], [1,0,-2.5], [0,-1,-2.5], [1,-1,-2.5]]) 
                 # bool_in, _ = validDrivableArea(bbx, tgt_pc)
-                bool_in, _ = validateDrivableArea2(bbx, tgt_pc)
+
+                # bool_in, _ = validateDrivableArea2(bbx, tgt_pc)
 
                 sphere = o3d.geometry.TriangleMesh.create_sphere(2).translate(np.array([0, 0, -2.5]))
-                if bool_in:
-                    sphere.paint_uniform_color([0.2,0.2,1.0])
-                else:
-                    sphere.paint_uniform_color([1,0,0])
+                # if bool_in:
+                #     sphere.paint_uniform_color([0.2,0.2,1.0])
+                # else:
+                sphere.paint_uniform_color([1,0,0])
                 vis_list += [sphere]
 
                 # np_list = vis_list
@@ -4551,7 +4839,7 @@ def Generate_Active_SceneFlow_Paper(start = 3, step = 3, lidar_hight = 3.4, pref
                         # continue
                     else:
                         oth_v_loc = np.array(oth_cars_info[iv])[:,1:4] * np.array([1.0, -1.0, 1.0])
-                        oth_v_loc[:,-1] = oth_v_loc[:,-1] + np.array(oth_cars_info[iv])[:,-1] - lidar_hight
+                        # oth_v_loc[:,-1] = oth_v_loc[:,-1] + np.array(oth_cars_info[iv])[:,-1] - lidar_hight
                         oth_v_rot = np.array(oth_cars_info[iv])[:,4:7]
                         oth_v_bbx_ext = np.array(oth_cars_info[iv])[:,-4:]
 
@@ -4570,6 +4858,7 @@ def Generate_Active_SceneFlow_Paper(start = 3, step = 3, lidar_hight = 3.4, pref
                             bbox_extend = oth_v_bbx_ext[ibbx, :-1] * 2.0
                             #For the local (observation) coordinates
                             bbox_center = lcl_R[iv] @ (oth_v_loc[ibbx,:] - lcl_trans_v[iv])
+                            bbox_center[-1] += oth_v_bbx_ext[ibbx, -1] - lidar_hight
                             #For the original coordinates
                             # bbox_center = lcl_R[iv] @ oth_v_loc[ibbx,:]
                             # print(bbox_center)
@@ -4784,18 +5073,42 @@ if __name__ == "__main__":
     # mode = 'random_paper'
     # mode = 'active_paper'
     # mode = 'active'
-    prefixed_V_name = "vehicle.dodge.charger_police_2020_261"
+    prefixed_V_name = "vehicle.toyota.prius_342"
     # prefixed_V_name = "vehicle.mini.cooper_s_2021_263"
     # prefixed_V_name = "vehicle.dodge.charger_police_2020_265"
     # prefixed_V_name = "vehicle.volkswagen.t2_325"
     if mode == 'random':
-        Generate_Random_SceneFlow(start=1, step=1, lidar_hight = 3.4, prefixed_V_name=prefixed_V_name, show_active_egoV=True, save_pts=False, enable_animation = True, egoV_flag=False, rm_ground = True, show_fgrnds=False, egoV_file_path = './data/data_0316_1838_Vinfo')
+        Generate_Random_SceneFlow(start=10, step=1, lidar_hight = 3.4, prefixed_V_name=prefixed_V_name, show_active_egoV=False, save_pts=False, enable_animation = True, egoV_flag=False, rm_ground = True, show_fgrnds=False, egoV_file_path = './data/'+DATASET_NAME+'_Vinfo')
     elif mode == 'random_paper':
-        Generate_Random_SceneFlow_Paper(start=1, step=1, lidar_hight = 3.4, prefixed_V_name=prefixed_V_name,  show_active_egoV=True, save_pts=False, enable_animation = True, egoV_flag=False, rm_ground = True, show_fgrnds=False, egoV_file_path = './data/data_0316_1838_Vinfo',GT_SUB_DATASET=prefixed_V_name)
+        Generate_Random_SceneFlow_Paper(start=1, step=1, lidar_hight = 3.4, prefixed_V_name=prefixed_V_name,  show_active_egoV=True, save_pts=False, enable_animation = True, egoV_flag=False, rm_ground = True, show_fgrnds=False, egoV_file_path = './data/'+DATASET_NAME+'_Vinfo',GT_SUB_DATASET=prefixed_V_name)
     elif mode == 'active_paper':
-        Generate_Active_SceneFlow_Paper( start=1, step=1, lidar_hight = 3.4, prefixed_V_name=prefixed_V_name, show_active_egoV=True, save_pts=False, enable_animation = True, egoV_flag=False, rm_ground = True, show_fgrnds=False, egoV_file_path = './data/data_0314_1923_active_Vinfo',GT_SUB_DATASET=prefixed_V_name, ACTIVE_SUB_DATASET=prefixed_V_name)
+        sub_dir_cnt = 10
+        for i, DATASET_NAME in enumerate(DATASET_NAMEs):
+            DATASET_PATH = 'dataset/record2023_0408_0041/'
+            DATASET_PATH2 = 'dataset/' + DATASET_NAME + '/'
+            DATASET_RAWTRANS_PATH = DATASET_PATH + '/global_label'
+            RESULT_PATH = './results'
+
+            # SUB_DATASET = 'vehicle.audi.etron_1928'#'vehicle.nissan.micra_1045'
+            # v_pattern = r"(?P<name>[vehicle]+.\w+.\w+)_(?P<v_id>\d+)"
+            # v = re.findall(v_pattern, SUB_DATASET)[0]
+            DATASET_PC_PATH = DATASET_PATH + GT_SUB_DATASETs[i] + '/velodyne_seg/'
+            DATASET_LBL_PATH = DATASET_PATH + GT_SUB_DATASETs[i] + '/label00/'
+            # DATASET_RAWTRANS_PATH = DATASET_PATH + '/global_label'
+            DATASET_RAWTRANS_PATH2 = DATASET_PATH2 + '/global_label'
+            # RESULT_PATH = './results/' + GT_SUB_DATASETs[i]
+            RESULT_PATH2 = './results/' + DATASET_NAME + '/rm_road/'
+           
+
+            RESULT_PATH3 = './results/record2023_0408_0041_active/val/rm_road/'
+
+            # RESULT_PATH3 = './results/record2022_0314_0305_2241/rm_egoV/'
+            
+            Generate_Active_SceneFlow(start=10, step=1, lidar_hight = 3.4, sub_dir_cnt=sub_dir_cnt, prefixed_V_name=None, show_active_egoV=False, save_pts=True, enable_animation = True, egoV_flag=False, rm_ground = True, show_fgrnds=False, egoV_file_path = './data/'+DATASET_NAME+'_active_Vinfo',GT_SUB_DATASET=GT_SUB_DATASETs[i], ACTIVE_SUB_DATASET=ACTIVE_SUB_DATASETs[i])
+
+            sub_dir_cnt = sub_dir_cnt + 1
     else:
         random_car_id = [271, 278, 255, 251, 264, 261, 253, 252, 262, 263, 270, 254, 247, 265, 266, 267] #0308_1719
         active_car_id = [271, 278, 255, 251, 264, 261, 253, 252, 262, 263, 270, 254, 247, 265, 266, 267] #0308_1719
         car_ids = dict(zip(random_car_id, active_car_id))
-        Generate_Active_SceneFlow(car_ids, start=1, step=1, lidar_hight = 3.4, prefixed_V_name=prefixed_V_name, show_active_egoV=False, save_pts=False, enable_animation = True, egoV_flag=False, rm_ground = True, show_fgrnds=False, egoV_file_path = './data/data_0314_1923_active_Vinfo',GT_SUB_DATASET=prefixed_V_name, ACTIVE_SUB_DATASET=prefixed_V_name)
+        Generate_Active_SceneFlow(car_ids, start=1, step=1, lidar_hight = 3.4, prefixed_V_name=prefixed_V_name, show_active_egoV=False, save_pts=False, enable_animation = True, egoV_flag=False, rm_ground = True, show_fgrnds=False, egoV_file_path = './data/'+DATASET_NAME+'_active_Vinfo',GT_SUB_DATASET=prefixed_V_name, ACTIVE_SUB_DATASET=prefixed_V_name)
