@@ -1,6 +1,6 @@
 # Scene Flow Estimation
 
-## Eval (FT3D)
+## Evaluation (FT3D)
 [1] EPE3D
 
 <img src="https://github.com/SJWang2015/ActiveSceneFlow_CARLA/blob/main/media/Eval_EPE_3d.svg" width="800" />
@@ -21,7 +21,8 @@
 
 <img src="https://github.com/SJWang2015/ActiveSceneFlow_CARLA/blob/main/media/Eval_Outlier.svg" width="800" />
 
-[6] Train Loss
+## Training (FT3D)
+[1] Train Loss
 
 <img src="https://github.com/SJWang2015/ActiveSceneFlow_CARLA/blob/main/media/Train_Loss.svg" width="800" />
 
