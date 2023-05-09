@@ -1,0 +1,51 @@
+gpu: "0"
+multi_gpu: null
+#"0,1"
+model_name: PointConv
+
+full: False
+
+evaluate: True
+resume: True
+ckpt_dir: ./pretrain_weights/carla_2023_8192/
+
+arch: PointConv
+last_relu: False
+allow_less_points: False
+
+# general args
+batch_size: 10
+pretrain: PointConv_493_0.1189.pth
+dim: 3
+num_points: 8192
+
+DEVICE: cuda
+
+dataset: carla #FlyingThings3DSubset # FlyingThings3DSubset KITTI
+#data_root: /public_dataset_nas/flownet3d/
+# data_root: /public_dataset_nas/public_workspace/ActiveSceneFlow/record2022_0315_1209/rm_egoV_fg/SF/val/
+# data_root: /public_dataset_nas/public_workspace/ActiveSceneFlow/record2022_0315_1838/rm_egoV_fg/val/
+# data_root: /public_dataset_nas/public_workspace/ActiveSceneFlow/record2022_0315_1838/rm_egoV_fg/SF/
+# data_root: /public_dataset_nas/public_workspace/ActiveSceneFlow/record2022_0315_1209_passive/SF5/
+# data_root: /public_dataset_nas/public_workspace/ActiveSceneFlow/record2022_0315_1209_active/1_0m_5000/SF5/
+# data_root: /public_dataset_nas/public_workspace/ActiveSceneFlow/record2022_0315_1209/rm_egoV/SF/active/
+# data_root: /public_dataset_nas/public_workspace/ActiveSceneFlow/record2022_0315_1209_1857/rm_egoV/SF/
+# data_root: /public_dataset_nas/public_workspace/ActiveSceneFlow/record2022_0314_0305_1923/rm_egoV/SF/
+# data_root: /public_dataset_nas/public_workspace/ActiveSceneFlow/Active_0048_0241_2344/rm_egoV/SF/
+data_root: /dataset/public_dataset_nas/carla_scene_flow2/
+
+
+data_process:
+  DEPTH_THRESHOLD: 100.0
+  NO_CORR: True
+
+# miscalleneous
+workers: 1
+
+
+
+
+
+
+
+
