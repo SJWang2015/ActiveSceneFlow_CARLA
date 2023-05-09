@@ -13,11 +13,11 @@
 
 <img src="https://github.com/SJWang2015/ActiveSceneFlow_CARLA/blob/main/media/Eval_ACC_3d_2.svg" width="800" />
 
-[4] Acc_Strict
+[4] Loss
 
 <img src="https://github.com/SJWang2015/ActiveSceneFlow_CARLA/blob/main/media/Eval_Mean_loss.svg" width="800" />
 
-[5] Acc_Strict
+[5] Outlier
 
 <img src="https://github.com/SJWang2015/ActiveSceneFlow_CARLA/blob/main/media/Eval_Outlier.svg" width="800" />
 
