@@ -1,5 +1,7 @@
 # Observation Position Decision
 
+The official code will be coming soon after optimized...
 
 ## Visulizaiton Videos
-Passive Trajectory VS Active Trajectory: Please refer to the [video](https://github.com/SJWang2015/ActiveSceneFlow_CARLA/blob/main/media/1509_tip2_lr.mp4).
+Passive Trajectory VS Active Trajectory: 
+<img src="https://github.com/SJWang2015/ActiveSceneFlow_CARLA/blob/main/media/active_scene_flow.gif" width="600" />
