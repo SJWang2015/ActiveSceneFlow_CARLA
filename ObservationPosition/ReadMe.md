@@ -1,5 +1,6 @@
 # Observation Position Decision
 
+The official code will be coming soon after optimized...
 
 ## Visulizaiton Videos
 Passive Trajectory VS Active Trajectory: 
