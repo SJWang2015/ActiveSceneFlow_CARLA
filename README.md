@@ -15,7 +15,11 @@ the ego-vehicle and the road as well as the predicted scene;
 network based refinement;
 5. A [briefing video](https://github.com/SJWang2015/ActiveSceneFlow_CARLA/blob/main/media/1509_tip2_lr.mp4) for introducing this work in the media directory.
 
-## Visulizaiton Videos
-Scene flow dataset           
+## Visualizaiton Videos
+1. Scene flow dataset (Demo)          
 <img src="https://github.com/SJWang2015/ActiveSceneFlow_CARLA/blob/main/media/carla.gif" width="600" />
+
+2. Passive Trajectory VS Active Trajectory (Demo)
+
+<img src="https://github.com/SJWang2015/ActiveSceneFlow_CARLA/blob/main/media/active_scene_flow.gif" width="600" />
 
