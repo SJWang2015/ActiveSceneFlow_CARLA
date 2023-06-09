@@ -1,4 +1,4 @@
-# Active Scene Flow Dataset
+# (Active & Passive) Scene Flow Dataset
 
 1. Randomly generate motion scenes and record the log file;
  ```
