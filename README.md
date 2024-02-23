@@ -23,3 +23,15 @@ network based refinement;
 
 <img src="https://github.com/SJWang2015/ActiveSceneFlow_CARLA/blob/main/media/active_scene_flow.gif" width="600" />
 
+## Citation
+If you use this code for academic research, you are highly encouraged to cite the following paper:
+
+```latex
+
+@article{wang2023active,
+  title={Active Scene Flow Estimation for Autonomous Driving via Real-Time Scene Prediction and Optimal Decision},
+  author={Wang, Shuaijun and Gao, Rui and Han, Ruihua and Chen, Jianjun and Zhao, Zirui and Lyu, Zhijun and Hao, Qi},
+  journal={IEEE Transactions on Intelligent Transportation Systems},
+  year={2023},
+  publisher={IEEE}
+}
